@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}Stinkis’ Krankenakten{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">Private Familien-Gesundheitschronik · v{{ app_version }}</div>
+      <h1>Stinkis’ Krankenakten</h1>
+    </div>
+    <div class="header-actions">
+      <button class="btn secondary icon-action" data-open-modal="people-admin-modal" title="Personen verwalten">👥 <span>Personen</span></button>
+      <button class="btn secondary" data-open-modal="backup-modal">Sicherung</button>
+      <button class="btn" data-open-modal="event-modal">+ Neuer Eintrag</button>
+    </div>
+  </header>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <section class="flash-wrap">
+        {% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}
+      </section>
+    {% endif %}
+  {% endwith %}
+
+  <main class="page">{% block content %}{% endblock %}</main>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
