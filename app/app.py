@@ -5,6 +5,7 @@ import csv
 import io
 import json
 import os
+from html import escape
 import sqlite3
 from collections import defaultdict
 from datetime import date
@@ -12,12 +13,18 @@ from pathlib import Path
 from typing import Any
 
 from flask import Flask, Response, flash, redirect, render_template, request, url_for
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DB_PATH = DATA_DIR / "stinkis.db"
-APP_VERSION = "0.4.0"
-SCHEMA_VERSION = 4
+APP_VERSION = "0.5.0"
+SCHEMA_VERSION = 5
 MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024
 
 app = Flask(__name__)
@@ -107,6 +114,11 @@ def init_db() -> None:
         _add_column(db, "events", "medication_reason TEXT DEFAULT ''")
         _add_column(db, "events", "medication_intolerance INTEGER NOT NULL DEFAULT 0")
         _add_column(db, "events", "legacy_medication_id INTEGER")
+        _add_column(db, "events", "is_sick_note INTEGER NOT NULL DEFAULT 0")
+        _add_column(db, "events", "sick_from TEXT")
+        _add_column(db, "events", "sick_to TEXT")
+        _add_column(db, "events", "has_attest INTEGER NOT NULL DEFAULT 0")
+        _add_column(db, "events", "attest_type TEXT DEFAULT ''")
         _add_column(db, "allergies", "start_date TEXT")
         _add_column(db, "allergies", "end_date TEXT")
         _add_column(db, "allergies", "resolved_note TEXT DEFAULT ''")
@@ -462,14 +474,19 @@ def create_event():
     if not _valid_date_range(start_date, end_date):
         flash("Das Enddatum darf nicht vor dem Beginn liegen.", "error")
         return redirect(url_for("index"))
+    sick_from = form.get("sick_from", "").strip()
+    sick_to = form.get("sick_to", "").strip()
+    if form.get("category", "").strip() == "Krankheit" and sick_from and sick_to and sick_to < sick_from:
+        flash("Das Ende der Krankschreibung darf nicht vor ihrem Beginn liegen.", "error")
+        return redirect(url_for("index"))
     with get_db() as db:
         db.execute(
             """
             INSERT INTO events (
                 person_id, category, title, start_date, end_date, notes,
                 document_url, is_important, medication_dosage, medication_reason,
-                medication_intolerance
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                medication_intolerance, is_sick_note, sick_from, sick_to, has_attest, attest_type
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 form["person_id"], form["category"].strip(), form["title"].strip(),
@@ -479,6 +496,11 @@ def create_event():
                 form.get("medication_dosage", "").strip() if form["category"].strip() == "Medikament" else "",
                 form.get("medication_reason", "").strip() if form["category"].strip() == "Medikament" else "",
                 1 if form["category"].strip() == "Medikament" and form.get("medication_intolerance") == "on" else 0,
+                1 if form["category"].strip() == "Krankheit" and form.get("is_sick_note") == "on" else 0,
+                form.get("sick_from", "").strip() or None if form["category"].strip() == "Krankheit" else None,
+                form.get("sick_to", "").strip() or None if form["category"].strip() == "Krankheit" else None,
+                1 if form["category"].strip() == "Krankheit" and form.get("has_attest") == "on" else 0,
+                form.get("attest_type", "").strip() if form["category"].strip() == "Krankheit" else "",
             ),
         )
     flash("Eintrag wurde gespeichert.", "success")
@@ -493,13 +515,19 @@ def edit_event(event_id: int):
     if not start_date or not _valid_date_range(start_date, end_date):
         flash("Bitte einen gültigen Zeitraum eingeben; das Ende darf nicht vor dem Beginn liegen.", "error")
         return redirect(url_for("index"))
+    sick_from = form.get("sick_from", "").strip()
+    sick_to = form.get("sick_to", "").strip()
+    if form.get("category", "").strip() == "Krankheit" and sick_from and sick_to and sick_to < sick_from:
+        flash("Das Ende der Krankschreibung darf nicht vor ihrem Beginn liegen.", "error")
+        return redirect(url_for("index"))
     with get_db() as db:
         db.execute(
             """
             UPDATE events
             SET person_id=?, category=?, title=?, start_date=?, end_date=?, notes=?,
                 document_url=?, is_important=?, medication_dosage=?, medication_reason=?,
-                medication_intolerance=?, updated_at=CURRENT_TIMESTAMP
+                medication_intolerance=?, is_sick_note=?, sick_from=?, sick_to=?,
+                has_attest=?, attest_type=?, updated_at=CURRENT_TIMESTAMP
             WHERE id=?
             """,
             (
@@ -510,6 +538,11 @@ def edit_event(event_id: int):
                 form.get("medication_dosage", "").strip() if form["category"].strip() == "Medikament" else "",
                 form.get("medication_reason", "").strip() if form["category"].strip() == "Medikament" else "",
                 1 if form["category"].strip() == "Medikament" and form.get("medication_intolerance") == "on" else 0,
+                1 if form["category"].strip() == "Krankheit" and form.get("is_sick_note") == "on" else 0,
+                form.get("sick_from", "").strip() or None if form["category"].strip() == "Krankheit" else None,
+                form.get("sick_to", "").strip() or None if form["category"].strip() == "Krankheit" else None,
+                1 if form["category"].strip() == "Krankheit" and form.get("has_attest") == "on" else 0,
+                form.get("attest_type", "").strip() if form["category"].strip() == "Krankheit" else "",
                 event_id,
             ),
         )
@@ -642,7 +675,7 @@ def import_data():
                 cols = list(item)
                 db.execute(f"INSERT INTO people ({','.join(cols)}) VALUES ({','.join('?' for _ in cols)})", [item[c] for c in cols])
             for row in events:
-                item = _clean_record(row, ["id", "person_id", "category", "title", "start_date", "end_date", "notes", "document_url", "is_important", "medication_dosage", "medication_reason", "medication_intolerance", "legacy_medication_id", "created_at", "updated_at"])
+                item = _clean_record(row, ["id", "person_id", "category", "title", "start_date", "end_date", "notes", "document_url", "is_important", "medication_dosage", "medication_reason", "medication_intolerance", "legacy_medication_id", "is_sick_note", "sick_from", "sick_to", "has_attest", "attest_type", "created_at", "updated_at"])
                 item.setdefault("is_important", 0)
                 cols = list(item)
                 db.execute(f"INSERT INTO events ({','.join(cols)}) VALUES ({','.join('?' for _ in cols)})", [item[c] for c in cols])
@@ -689,17 +722,14 @@ def import_data():
     return redirect(url_for("index"))
 
 
-@app.get("/reports/csv")
-def report_csv():
+def _report_data():
     person_id = request.args.get("person_id", "").strip()
     date_from = request.args.get("date_from", "").strip()
     date_to = request.args.get("date_to", "").strip()
     category = request.args.get("category", "").strip()
     important_only = request.args.get("important") == "1"
     if not person_id:
-        flash("Für einen Bericht bitte eine Person auswählen.", "error")
-        return redirect(url_for("index"))
-
+        return None
     where = ["e.person_id = ?"]
     params: list[Any] = [person_id]
     if category:
@@ -713,17 +743,13 @@ def report_csv():
     if date_to:
         where.append("e.start_date <= ?")
         params.append(date_to)
-
     with get_db() as db:
         person = db.execute("SELECT * FROM people WHERE id=?", (person_id,)).fetchone()
         if not person:
-            flash("Person wurde nicht gefunden.", "error")
-            return redirect(url_for("index"))
+            return None
         events = db.execute(
-            f"""SELECT e.* FROM events e WHERE {' AND '.join(where)}
-                ORDER BY e.start_date ASC, e.id ASC""", params
+            f"SELECT e.* FROM events e WHERE {' AND '.join(where)} ORDER BY e.start_date ASC, e.id ASC", params
         ).fetchall()
-
         allergy_where = ["person_id = ?"]
         allergy_params: list[Any] = [person_id]
         if date_from:
@@ -736,11 +762,21 @@ def report_csv():
             f"SELECT * FROM allergies WHERE {' AND '.join(allergy_where)} ORDER BY COALESCE(start_date, created_at), id",
             allergy_params,
         ).fetchall()
+    return person, events, allergies, date_from, date_to, category, important_only
+
+
+@app.get("/reports/csv")
+def report_csv():
+    data = _report_data()
+    if not data:
+        flash("Für einen Bericht bitte eine gültige Person auswählen.", "error")
+        return redirect(url_for("index"))
+    person, events, allergies, date_from, date_to, category, important_only = data
 
     stream = io.StringIO()
     writer = csv.writer(stream, delimiter=';')
     writer.writerow(["Datentyp", "Person", "Kategorie", "Titel", "Beginn", "Ende",
-                     "Details", "Notizen", "Wichtig", "Dokument"])
+                     "Details", "Notizen", "Wichtig", "Externe URL / Link"])
     for event in events:
         details = []
         if event["category"] == "Medikament":
@@ -750,6 +786,11 @@ def report_csv():
                 details.append(f"Grund: {event['medication_reason']}")
             if event["medication_intolerance"]:
                 details.append("Unverträglichkeit")
+        if event["category"] == "Krankheit":
+            if event["is_sick_note"]:
+                details.append(f"Krankgeschrieben: {event['sick_from'] or event['start_date']} bis {event['sick_to'] or event['end_date'] or event['start_date']}")
+            if event["has_attest"]:
+                details.append("Attest: " + (event["attest_type"] or "vorhanden"))
         writer.writerow(["Timeline", person["name"], event["category"], event["title"],
                          event["start_date"], event["end_date"] or "", " | ".join(details),
                          event["notes"] or "", "ja" if event["is_important"] else "nein",
@@ -766,6 +807,66 @@ def report_csv():
     body = '\ufeff' + stream.getvalue()
     return Response(body, mimetype="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+
+@app.get("/reports/pdf")
+def report_pdf():
+    data = _report_data()
+    if not data:
+        flash("Für einen Bericht bitte eine gültige Person auswählen.", "error")
+        return redirect(url_for("index"))
+    person, events, allergies, date_from, date_to, category, important_only = data
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=16*mm, leftMargin=16*mm, topMargin=15*mm, bottomMargin=15*mm)
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name="Meta", parent=styles["BodyText"], fontSize=9, leading=12, textColor=colors.HexColor("#475569")))
+    styles.add(ParagraphStyle(name="EventTitle", parent=styles["Heading3"], fontSize=11, leading=14, spaceAfter=3))
+    story = [Paragraph("Gesundheitsakte", styles["Title"]), Paragraph(escape(person["name"]), styles["Heading2"])]
+    meta = []
+    if person["birth_date"]: meta.append(f"Geboren: {person['birth_date']}")
+    if date_from or date_to: meta.append(f"Zeitraum: {date_from or 'offen'} bis {date_to or 'offen'}")
+    if category: meta.append(f"Kategorie: {category}")
+    if important_only: meta.append("Nur wichtige Einträge")
+    if meta: story.append(Paragraph(escape(" | ".join(meta)), styles["Meta"]))
+    story.append(Spacer(1, 5*mm))
+
+    story.append(Paragraph("Allergien & Unverträglichkeiten", styles["Heading2"]))
+    if allergies:
+        table_data = [["Bezeichnung", "Reaktion", "Von", "Bis", "Notiz"]]
+        for a in allergies:
+            note = a["notes"] or ""
+            if a["resolved_note"]: note = (note + " / " if note else "") + "Abschluss: " + a["resolved_note"]
+            table_data.append([a["name"], a["reaction"] or "", a["start_date"] or "", a["end_date"] or "", note])
+        table = Table(table_data, colWidths=[38*mm, 34*mm, 23*mm, 23*mm, 50*mm], repeatRows=1)
+        table.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor("#e2e8f0")),("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("FONTSIZE",(0,0),(-1,-1),8),("VALIGN",(0,0),(-1,-1),"TOP"),("GRID",(0,0),(-1,-1),0.25,colors.HexColor("#cbd5e1")),("LEFTPADDING",(0,0),(-1,-1),4),("RIGHTPADDING",(0,0),(-1,-1),4)]))
+        story.append(table)
+    else:
+        story.append(Paragraph("Keine passenden Allergieeinträge.", styles["Meta"]))
+    story.append(Spacer(1, 5*mm))
+
+    story.append(Paragraph("Timeline", styles["Heading2"]))
+    if not events:
+        story.append(Paragraph("Keine passenden Timeline-Einträge.", styles["Meta"]))
+    for e in events:
+        period = e["start_date"] + ((" bis " + e["end_date"]) if e["end_date"] else "")
+        marker = "! " if e["is_important"] else ""
+        story.append(Paragraph(escape(f"{marker}{e['title']}"), styles["EventTitle"]))
+        story.append(Paragraph(escape(f"{period} | {e['category']}"), styles["Meta"]))
+        extras = []
+        if e["category"] == "Medikament":
+            if e["medication_dosage"]: extras.append("Dosierung: " + e["medication_dosage"])
+            if e["medication_reason"]: extras.append("Grund: " + e["medication_reason"])
+        if e["category"] == "Krankheit":
+            if e["is_sick_note"]: extras.append(f"Krankgeschrieben: {e['sick_from'] or e['start_date']} bis {e['sick_to'] or e['end_date'] or e['start_date']}")
+            if e["has_attest"]: extras.append("Attest: " + (e["attest_type"] or "vorhanden"))
+        if extras: story.append(Paragraph(escape(" | ".join(extras)), styles["Meta"]))
+        if e["notes"]: story.append(Paragraph(escape(e["notes"]).replace("\n", "<br/>"), styles["BodyText"]))
+        if e["document_url"]: story.append(Paragraph("Externe URL / Link: " + escape(e["document_url"]), styles["Meta"]))
+        story.append(Spacer(1, 3*mm))
+    doc.build(story)
+    body = buffer.getvalue()
+    filename = f"krankenakte-{person['name'].lower().replace(' ', '-')}.pdf"
+    return Response(body, mimetype="application/pdf", headers={"Content-Disposition": f"attachment; filename={filename}"})
 
 
 @app.get("/health")

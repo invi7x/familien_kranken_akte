@@ -88,3 +88,27 @@
 @media(max-width:1000px){.date-range-filter{grid-column:1/-1}}
 @media(max-width:620px){.date-range-filter{grid-column:auto;grid-template-columns:1fr 1fr}.event-avatar{width:22px;height:22px;flex-basis:22px}}
 .allergy-period{display:block;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:.18rem}
+
+/* v0.5.0 – ruhigere Mehrwertboxen, zentrale Verwaltung, Atteste und Reports */
+.modal-actions{margin-top:1.15rem;padding-top:.25rem}
+.destructive-separated{justify-content:space-between;gap:1rem}
+.destructive-separated .danger{margin-left:auto}
+.report-actions{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:1rem}
+.illness-fields{border:1px solid #bfdbfe;background:#f8fbff;border-radius:.9rem;padding:.9rem}
+.medical-proof-details{display:flex;flex-wrap:wrap;gap:.5rem 1rem;margin:.7rem 0;padding:.65rem .75rem;background:#f8fafc;border-radius:.7rem;color:#475569;font-size:.9rem}
+.person-group-head .sidebar-gender{margin-left:auto}
+.person-manage-btn{display:grid;place-items:center;width:2rem;height:2rem;margin-left:.2rem;border:1px solid var(--border);border-radius:.65rem;background:#fff;color:var(--accent);cursor:pointer;font-weight:800;flex:0 0 auto}
+.person-manage-btn:hover{background:var(--accent-soft);border-color:#bfdbfe}
+.compact-list{display:grid;gap:.5rem}
+.compact-list-item{padding:.25rem 0}
+.compact-list-item strong,.compact-list-item span,.compact-list-item small{display:block}
+.compact-list-item .stack-title-line{display:flex;flex-wrap:wrap;gap:.25rem}
+.compact-list-item .stack-title-line .inline-detail{display:inline;color:var(--muted);margin:0}
+.compact-list-item small,.compact-list-item span:not(.warning){color:var(--muted);margin-top:.15rem}
+.stack-item{border-bottom:0}
+.manage-list{display:grid;gap:.7rem;margin:.25rem 0 1rem}
+.manage-item{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:.75rem;border:1px solid var(--border);border-radius:.8rem;background:#f8fafc}
+.manage-item strong,.manage-item small{display:block}
+.manage-item small{color:var(--muted);margin-top:.2rem}
+.manage-actions{display:flex;align-items:center;gap:.35rem;flex:0 0 auto}
+@media(max-width:620px){.report-actions{grid-template-columns:1fr}.manage-item{gap:.6rem}.modal-actions{margin-top:1.35rem}}

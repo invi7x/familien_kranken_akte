@@ -1,59 +1,68 @@
-# Stinkis’ Krankenakten – Version 0.4.0
+# Stinkis’ Krankenakten – Version 0.5.0
 
 Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 
-## Neu in Version 0.4.0
+## Neu in Version 0.5.0
 
-### Allergien behalten ihre Historie
+### Ruhigere Allergie- und Medikamentenboxen
 
-- Allergien und Unverträglichkeiten können jetzt optional mit **Bekannt seit** versehen werden.
-- Beim Bearbeiten gibt es **Tritt nicht mehr auf / abgeschlossen**.
-- Dazu können ein Abschlussdatum und eine Abschlussnotiz hinterlegt werden.
-- Abgeschlossene Einträge verschwinden aus der aktuellen rechten Übersicht, werden aber **nicht gelöscht**.
-- Über **Abgeschlossene Allergien anzeigen** bleibt die gesamte Historie einsehbar.
-- Historische Allergien können wieder bearbeitet bzw. reaktiviert werden.
+- In den rechten Mehrwertboxen gibt es nur noch **einen Verwaltungs-Stift pro Person**.
+- Ein Klick öffnet ein personenbezogenes Popup mit allen aktiven Einträgen.
+- Dort können einzelne Allergien bzw. Medikamente bearbeitet oder bei Fehleingaben gelöscht werden.
+- Die störenden Trennlinien zwischen Einzelpositionen wurden entfernt.
+- Abgeschlossene Allergien und beendete Medikamente bleiben weiterhin über ihre Historien erreichbar.
 
-### Timeline und Suche
+### Krankschreibung und Attest
 
-- Der Avatar der Person wird jetzt auch direkt in jedem Timeline-Eintrag angezeigt.
-- Die Suche besitzt einen optionalen **Zeitraum von / bis**.
-- Mehrtägige Einträge werden gefunden, sobald sich ihr Zeitraum mit dem Suchzeitraum überschneidet.
-- Personen-, Kategorie-, Wichtigkeits- und Zeitraumfilter lassen sich kombinieren.
+Bei der Kategorie **Krankheit** erscheinen jetzt dynamisch zusätzliche Felder:
+
+- ärztlich krankgeschrieben
+- Krankgeschrieben von / bis
+- Attest / ärztlicher Nachweis vorhanden
+- Art des Attests (Arbeitsunfähigkeit, Schulattest, Sportbefreiung, sonstiges)
+
+Die Angaben werden in der Timeline sowie in CSV- und PDF-Berichten berücksichtigt.
 
 ### Berichte
 
-- Oben gibt es neu **Berichte**.
-- Für eine Person kann eine Excel-kompatible **CSV-Akte** exportiert werden.
-- Person, Zeitraum, Kategorie und „nur wichtige“ können ausgewählt werden.
-- Der CSV-Bericht enthält Timeline-Einträge, Medikationsdetails und die Allergiehistorie.
-- PDF bleibt für eine spätere Version im Backlog.
+- Neben CSV gibt es jetzt einen **PDF-Bericht** als lesbare persönliche Gesundheitsakte.
+- Person, Zeitraum, Kategorie und „nur wichtige“ können vor dem Export ausgewählt werden.
+- Der PDF-Bericht enthält Allergiehistorie, Timeline, Medikamentendetails sowie Krankschreibung/Attest.
+- CSV bleibt für Excel und eigene Auswertungen erhalten.
+
+### UI-Feinschliff
+
+- „Paperless- oder NAS-Link“ heißt nun neutral **„Externe URL / Link“**.
+- Im Timeline-Eintrag heißt die Aktion entsprechend **„Link öffnen“**.
+- Mehr Abstand zwischen den Formularfeldern und der Speichern-/Löschen-Leiste.
+- Destruktive Löschaktionen bleiben räumlich klar vom Speichern getrennt.
 
 ### Datensicherung
 
-- JSON-Schema ist jetzt **Version 4**.
+- JSON-Schema ist jetzt **Version 5**.
 - Alte Sicherungen bleiben importierbar.
 - Profilbilder bleiben Bestandteil des JSON-Exports.
-- Neue Allergie-Historienfelder werden ebenfalls exportiert/importiert.
+- Neue Krankschreibungs- und Attestfelder werden ebenfalls exportiert/importiert.
 
 ## Parallel testen
 
 Vorher in der laufenden Version über **Sicherung** einen aktuellen JSON-Export erstellen.
 
 ```bash
-cd /docker/stinkis-krankenakten-v0.4.0
+cd /docker/stinkis-krankenakten-v0.5.0
 sudo docker compose -f compose-test.yaml up -d --build
 ```
 
 Aufruf:
 
 ```text
-http://SERVER-IP:8490
+http://SERVER-IP:8491
 ```
 
 Test-Volume:
 
 ```text
-stinkis_v040_test_data
+stinkis_v050_test_data
 ```
 
 Damit bleibt die bisherige Installation unangetastet.

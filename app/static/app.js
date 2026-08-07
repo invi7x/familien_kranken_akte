@@ -4,7 +4,11 @@ function openModal(id) {
 }
 
 document.querySelectorAll("[data-open-modal]").forEach((button) => {
-  button.addEventListener("click", () => openModal(button.dataset.openModal));
+  button.addEventListener("click", () => {
+    const current = button.closest("dialog");
+    if (current && current.id !== button.dataset.openModal) current.close();
+    openModal(button.dataset.openModal);
+  });
 });
 
 document.querySelectorAll("[data-close-modal]").forEach((button) => {
@@ -42,6 +46,7 @@ syncMedicationFields(newEventCategory, newMedicationFields, newEventTitleLabel, 
 
 document.querySelectorAll("[data-new-medication]").forEach((button) => {
   button.addEventListener("click", () => {
+    button.closest("dialog")?.close();
     if (newEventCategory) newEventCategory.value = "Medikament";
     syncMedicationFields(newEventCategory, newMedicationFields, newEventTitleLabel, newEventTitle);
     openModal("event-modal");
@@ -125,5 +130,34 @@ document.querySelectorAll("[data-edit-allergy]").forEach((button) => {
     editAllergyForm.action = `/allergies/${button.dataset.id}/edit`;
     button.closest("dialog")?.close();
     openModal("edit-allergy-modal");
+  });
+});
+
+function syncIllnessFields(categorySelect, fields) {
+  if (!categorySelect || !fields) return;
+  fields.hidden = categorySelect.value !== "Krankheit";
+}
+
+const newIllnessFields = document.getElementById("new-illness-fields");
+newEventCategory?.addEventListener("change", () => syncIllnessFields(newEventCategory, newIllnessFields));
+syncIllnessFields(newEventCategory, newIllnessFields);
+
+const editIllnessFields = document.getElementById("edit-illness-fields");
+editCategory?.addEventListener("change", () => syncIllnessFields(editCategory, editIllnessFields));
+
+// Ergänzt den bestehenden Bearbeiten-Handler um Krankschreibung/Attest.
+document.querySelectorAll("[data-edit-event]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const isSickNote = document.getElementById("edit-is-sick-note");
+    const sickFrom = document.getElementById("edit-sick-from");
+    const sickTo = document.getElementById("edit-sick-to");
+    const hasAttest = document.getElementById("edit-has-attest");
+    const attestType = document.getElementById("edit-attest-type");
+    if (isSickNote) isSickNote.checked = button.dataset.isSickNote === "1";
+    if (sickFrom) sickFrom.value = button.dataset.sickFrom || "";
+    if (sickTo) sickTo.value = button.dataset.sickTo || "";
+    if (hasAttest) hasAttest.checked = button.dataset.hasAttest === "1";
+    if (attestType) attestType.value = button.dataset.attestType || "";
+    syncIllnessFields(editCategory, editIllnessFields);
   });
 });

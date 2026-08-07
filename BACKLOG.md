@@ -2,14 +2,30 @@
 
 ## Nächste Ausbaustufen
 
-- Ärztliche Krankschreibung / Attest mit eigenem Zeitraum und späterer Jahresauswertung
+- Jahresauswertung für ärztliche Krankschreibungen (Kalender-/Arbeitstage)
 - Medikamente optional mit Diagnose, Krankheit, OP oder anderem Timeline-Eintrag verknüpfen
 - Dosierungsänderungen und Pausierung einer Medikation historisch abbilden
 - Profilbilder automatisch verkleinern und optional als Datei statt im JSON sichern
-- Dokumentenanhänge zusätzlich zu Paperless-/NAS-Links
+- Dokumentenanhänge zusätzlich zu externen URL-/Links
 - Pollenflug-Widget mit externer Datenquelle und persönlicher Allergie-Zuordnung
 - Optionaler Status „verstorben am“ mit Archivierung und Schreibschutz (Priorität 99)
 - Spätere neutrale Umbenennung für eine öffentliche Veröffentlichung
+
+
+## In v0.5.0 erledigt
+
+- Rechte Allergie- und Medikamentenboxen visuell beruhigt
+- Nur noch ein Verwaltungs-Stift pro Person in den Mehrwertboxen
+- Bearbeiten/Löschen einzelner Allergien und Medikamente in personenbezogenen Popups
+- Trennlinien zwischen Einzelpositionen entfernt
+- Mehr Abstand zwischen Formularfeldern und Speichern/Löschen-Aktionen
+- „Paperless- oder NAS-Link“ neutral in „Externe URL / Link“ umbenannt
+- Dynamische Krankschreibung-/Attest-Felder bei Kategorie Krankheit
+- Eigener Zeitraum für ärztliche Krankschreibung und Attest-Typ
+- Krankschreibung/Attest in Timeline und Exportdaten sichtbar
+- PDF-Bericht zusätzlich zum CSV-Bericht
+- PDF/CSV nach Person, Zeitraum, Kategorie und Wichtigkeit filterbar
+- JSON-Schema 5; ältere Backups bleiben importierbar
 
 ## In v0.4.0 erledigt
 
@@ -60,7 +76,6 @@
 - CSV-Berichte pro Person / Zeitraum / Kategorie
 
 ## Als Nächstes / später
-- PDF-Bericht als druckbare Patientenakte
-- Krankmeldung / Attest und Jahresauswertung
+- Jahresauswertung für Krankmeldungen / Atteste
 - Pollenflug-Widget
 - Archivierung verstorbener Personen (Prio 99)
