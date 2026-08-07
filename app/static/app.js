@@ -65,3 +65,31 @@ document.querySelectorAll("[data-edit-person]").forEach((button) => {
     openModal("edit-person-modal");
   });
 });
+
+const editAllergyForm = document.getElementById("edit-allergy-form");
+document.querySelectorAll("[data-edit-allergy]").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.getElementById("edit-allergy-person-id").value = button.dataset.personId;
+    document.getElementById("edit-allergy-name").value = button.dataset.name;
+    document.getElementById("edit-allergy-reaction").value = button.dataset.reaction;
+    document.getElementById("edit-allergy-notes").value = button.dataset.notes;
+    editAllergyForm.action = `/allergies/${button.dataset.id}/edit`;
+    openModal("edit-allergy-modal");
+  });
+});
+
+const editMedicationForm = document.getElementById("edit-medication-form");
+document.querySelectorAll("[data-edit-medication]").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.getElementById("edit-medication-person-id").value = button.dataset.personId;
+    document.getElementById("edit-medication-name").value = button.dataset.name;
+    document.getElementById("edit-medication-dosage").value = button.dataset.dosage;
+    document.getElementById("edit-medication-reason").value = button.dataset.reason;
+    document.getElementById("edit-medication-start-date").value = button.dataset.startDate;
+    document.getElementById("edit-medication-end-date").value = button.dataset.endDate;
+    document.getElementById("edit-medication-intolerance").checked = button.dataset.intolerance === "1";
+    document.getElementById("edit-medication-notes").value = button.dataset.notes;
+    editMedicationForm.action = `/medications/${button.dataset.id}/edit`;
+    openModal("edit-medication-modal");
+  });
+});

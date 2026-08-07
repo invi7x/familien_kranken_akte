@@ -14,7 +14,7 @@ from flask import Flask, Response, flash, redirect, render_template, request, ur
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DB_PATH = DATA_DIR / "stinkis.db"
-APP_VERSION = "0.2.1"
+APP_VERSION = "0.2.2"
 SCHEMA_VERSION = 2
 MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024
 
@@ -149,26 +149,32 @@ def index():
     category = request.args.get("category", "").strip()
     important_only = request.args.get("important") == "1"
 
-    sql = """
-        SELECT e.*, p.name AS person_name
-        FROM events e
-        JOIN people p ON p.id = e.person_id
-        WHERE 1 = 1
-    """
-    params: list[Any] = []
+    try:
+        per_page = int(request.args.get("per_page", "20"))
+    except ValueError:
+        per_page = 20
+    if per_page not in {20, 50, 100}:
+        per_page = 20
 
+    try:
+        page = max(1, int(request.args.get("page", "1")))
+    except ValueError:
+        page = 1
+
+    where = ["1 = 1"]
+    params: list[Any] = []
     if person_id:
-        sql += " AND e.person_id = ?"
+        where.append("e.person_id = ?")
         params.append(person_id)
     if category:
-        sql += " AND e.category = ?"
+        where.append("e.category = ?")
         params.append(category)
     if important_only:
-        sql += " AND e.is_important = 1"
+        where.append("e.is_important = 1")
     if q:
         like = f"%{q}%"
-        sql += """
-            AND (
+        where.append(
+            """(
                 e.title LIKE ? OR e.notes LIKE ? OR e.category LIKE ? OR p.name LIKE ?
                 OR EXISTS (
                     SELECT 1 FROM medications m
@@ -180,32 +186,71 @@ def index():
                     WHERE a.person_id = e.person_id
                       AND (a.name LIKE ? OR a.reaction LIKE ? OR a.notes LIKE ?)
                 )
-            )
-        """
+            )"""
+        )
         params.extend([like] * 10)
-    sql += " ORDER BY e.start_date DESC, e.id DESC"
+
+    where_sql = " AND ".join(where)
+    count_sql = f"""
+        SELECT COUNT(*) AS total
+        FROM events e
+        JOIN people p ON p.id = e.person_id
+        WHERE {where_sql}
+    """
 
     with get_db() as db:
+        total_events = int(db.execute(count_sql, params).fetchone()["total"])
+        total_pages = max(1, (total_events + per_page - 1) // per_page)
+        if page > total_pages:
+            page = total_pages
+        offset = (page - 1) * per_page
+
+        event_sql = f"""
+            SELECT e.*, p.name AS person_name
+            FROM events e
+            JOIN people p ON p.id = e.person_id
+            WHERE {where_sql}
+            ORDER BY e.start_date DESC, e.id DESC
+            LIMIT ? OFFSET ?
+        """
+        events = db.execute(event_sql, [*params, per_page, offset]).fetchall()
         people = db.execute("SELECT * FROM people ORDER BY name").fetchall()
-        events = db.execute(sql, params).fetchall()
+
+        side_params: list[Any] = []
+        side_where = ""
+        if person_id:
+            side_where = " WHERE a.person_id = ?"
+            side_params.append(person_id)
         allergies = db.execute(
-            """
+            f"""
             SELECT a.*, p.name AS person_name, p.profile_image, p.gender
             FROM allergies a JOIN people p ON p.id = a.person_id
+            {side_where}
             ORDER BY p.name, a.name
-            """
+            """,
+            side_params,
         ).fetchall()
+
+        med_params: list[Any] = []
+        med_where = ""
+        if person_id:
+            med_where = " WHERE m.person_id = ?"
+            med_params.append(person_id)
         medications = db.execute(
-            """
+            f"""
             SELECT m.*, p.name AS person_name, p.profile_image, p.gender
             FROM medications m JOIN people p ON p.id = m.person_id
+            {med_where}
             ORDER BY p.name, m.name
-            """
+            """,
+            med_params,
         ).fetchall()
 
     today_iso = date.today().isoformat()
     active_medications = [m for m in medications if not m["end_date"] or m["end_date"] >= today_iso]
     ended_medications = [m for m in medications if m["end_date"] and m["end_date"] < today_iso]
+    page_start = offset + 1 if total_events else 0
+    page_end = min(offset + len(events), total_events)
 
     return render_template(
         "index.html",
@@ -218,6 +263,12 @@ def index():
         selected_person_id=person_id,
         selected_category=category,
         important_only=important_only,
+        page=page,
+        per_page=per_page,
+        total_events=total_events,
+        total_pages=total_pages,
+        page_start=page_start,
+        page_end=page_end,
     )
 
 
@@ -373,6 +424,21 @@ def create_allergy():
     return redirect(url_for("index"))
 
 
+@app.post("/allergies/<int:allergy_id>/edit")
+def edit_allergy(allergy_id: int):
+    form = request.form
+    if not form.get("person_id") or not form.get("name", "").strip():
+        flash("Person und Allergie/Unverträglichkeit sind Pflichtfelder.", "error")
+        return redirect(url_for("index"))
+    with get_db() as db:
+        db.execute(
+            "UPDATE allergies SET person_id=?, name=?, reaction=?, notes=? WHERE id=?",
+            (form["person_id"], form["name"].strip(), form.get("reaction", "").strip(), form.get("notes", "").strip(), allergy_id),
+        )
+    flash("Allergie oder Unverträglichkeit wurde aktualisiert.", "success")
+    return redirect(url_for("index"))
+
+
 @app.post("/allergies/<int:allergy_id>/delete")
 def delete_allergy(allergy_id: int):
     with get_db() as db:
@@ -401,6 +467,30 @@ def create_medication():
             ),
         )
     flash("Medikament wurde gespeichert.", "success")
+    return redirect(url_for("index"))
+
+
+@app.post("/medications/<int:medication_id>/edit")
+def edit_medication(medication_id: int):
+    form = request.form
+    if not form.get("person_id") or not form.get("name", "").strip():
+        flash("Person und Medikament sind Pflichtfelder.", "error")
+        return redirect(url_for("index"))
+    with get_db() as db:
+        db.execute(
+            """
+            UPDATE medications
+            SET person_id=?, name=?, dosage=?, reason=?, start_date=?, end_date=?, intolerance=?, notes=?
+            WHERE id=?
+            """,
+            (
+                form["person_id"], form["name"].strip(), form.get("dosage", "").strip(),
+                form.get("reason", "").strip(), form.get("start_date", "").strip() or None,
+                form.get("end_date", "").strip() or None, 1 if form.get("intolerance") == "on" else 0,
+                form.get("notes", "").strip(), medication_id,
+            ),
+        )
+    flash("Medikament wurde aktualisiert.", "success")
     return redirect(url_for("index"))
 
 
