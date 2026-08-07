@@ -23,8 +23,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DB_PATH = DATA_DIR / "stinkis.db"
-APP_VERSION = "0.5.1"
-SCHEMA_VERSION = 5
+APP_VERSION = "0.6.0"
+SCHEMA_VERSION = 6
 MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024
 
 app = Flask(__name__)
@@ -61,6 +61,7 @@ def init_db() -> None:
                 notes TEXT DEFAULT '',
                 gender TEXT DEFAULT '',
                 profile_image TEXT DEFAULT '',
+                sort_order INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
 
@@ -109,6 +110,11 @@ def init_db() -> None:
         )
         _add_column(db, "people", "gender TEXT DEFAULT ''")
         _add_column(db, "people", "profile_image TEXT DEFAULT ''")
+        _add_column(db, "people", "sort_order INTEGER NOT NULL DEFAULT 0")
+        people_for_order = db.execute("SELECT id, sort_order FROM people ORDER BY sort_order, name, id").fetchall()
+        if people_for_order and all(int(row["sort_order"] or 0) == 0 for row in people_for_order):
+            for position, row in enumerate(people_for_order, start=1):
+                db.execute("UPDATE people SET sort_order=? WHERE id=?", (position * 10, row["id"]))
         _add_column(db, "events", "is_important INTEGER NOT NULL DEFAULT 0")
         _add_column(db, "events", "medication_dosage TEXT DEFAULT ''")
         _add_column(db, "events", "medication_reason TEXT DEFAULT ''")
@@ -201,11 +207,35 @@ def _group_by_person(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
                 "person_name": row["person_name"],
                 "profile_image": row["profile_image"] if "profile_image" in row.keys() else "",
                 "gender": row["gender"] if "gender" in row.keys() else "",
+                "sort_order": row["sort_order"] if "sort_order" in row.keys() else 0,
                 "items": [],
             }
         groups[person_id]["items"].append(row)
-    return list(groups.values())
+    return sorted(groups.values(), key=lambda group: (int(group.get("sort_order") or 0), group["person_name"].lower()))
 
+
+
+GERMAN_MONTHS = {
+    1: "Januar", 2: "Februar", 3: "März", 4: "April", 5: "Mai", 6: "Juni",
+    7: "Juli", 8: "August", 9: "September", 10: "Oktober", 11: "November", 12: "Dezember",
+}
+
+def _group_events_by_month(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
+    groups: list[dict[str, Any]] = []
+    current_key = None
+    for row in rows:
+        try:
+            year, month, _ = map(int, row["start_date"].split("-"))
+            key = f"{year:04d}-{month:02d}"
+            label = f"{GERMAN_MONTHS.get(month, month)} {year}"
+        except (ValueError, AttributeError):
+            key = "unknown"
+            label = "Ohne Monatsangabe"
+        if key != current_key:
+            groups.append({"key": key, "label": label, "items": []})
+            current_key = key
+        groups[-1]["items"].append(row)
+    return groups
 
 @app.get("/")
 def index():
@@ -305,7 +335,7 @@ def index():
             [*params, today_iso],
         ).fetchall()
 
-        people = db.execute("SELECT * FROM people ORDER BY name").fetchall()
+        people = db.execute("SELECT * FROM people ORDER BY sort_order, name, id").fetchall()
 
         side_params: list[Any] = []
         side_where = ""
@@ -314,10 +344,10 @@ def index():
             side_params.append(person_id)
         allergies = db.execute(
             f"""
-            SELECT a.*, p.name AS person_name, p.profile_image, p.gender
+            SELECT a.*, p.name AS person_name, p.profile_image, p.gender, p.sort_order
             FROM allergies a JOIN people p ON p.id = a.person_id
             {side_where}
-            ORDER BY p.name, a.name
+            ORDER BY p.sort_order, p.name, a.name
             """,
             side_params,
         ).fetchall()
@@ -332,10 +362,10 @@ def index():
             SELECT e.id, e.person_id, e.title AS name, e.medication_dosage AS dosage,
                    e.medication_reason AS reason, e.start_date, e.end_date,
                    e.medication_intolerance AS intolerance, e.notes, e.document_url,
-                   e.is_important, p.name AS person_name, p.profile_image, p.gender
+                   e.is_important, p.name AS person_name, p.profile_image, p.gender, p.sort_order
             FROM events e JOIN people p ON p.id = e.person_id
             WHERE e.category = 'Medikament' {med_person_where}
-            ORDER BY p.name, e.start_date DESC, e.title
+            ORDER BY p.sort_order, p.name, e.start_date DESC, e.title
             """,
             med_params,
         ).fetchall()
@@ -355,6 +385,7 @@ def index():
         "index.html",
         people=people,
         events=events,
+        history_month_groups=_group_events_by_month(events),
         future_events=future_events,
         allergy_groups=_group_by_person(active_allergies),
         allergy_history_groups=_group_by_person(ended_allergies),
@@ -403,9 +434,10 @@ def create_person():
     try:
         profile_image = _profile_image_from_upload() or ""
         with get_db() as db:
+            next_sort = int(db.execute("SELECT COALESCE(MAX(sort_order), 0) + 10 AS value FROM people").fetchone()["value"])
             db.execute(
-                "INSERT INTO people (name, birth_date, notes, gender, profile_image) VALUES (?, ?, ?, ?, ?)",
-                (name, birth_date, notes, gender, profile_image),
+                "INSERT INTO people (name, birth_date, notes, gender, profile_image, sort_order) VALUES (?, ?, ?, ?, ?, ?)",
+                (name, birth_date, notes, gender, profile_image, next_sort),
             )
     except ValueError as exc:
         flash(str(exc), "error")
@@ -414,6 +446,25 @@ def create_person():
     else:
         flash("Person wurde angelegt.", "success")
     return redirect(url_for("index"))
+
+
+@app.post("/people/reorder")
+def reorder_people():
+    payload = request.get_json(silent=True) or {}
+    ordered_ids = payload.get("people", [])
+    if not isinstance(ordered_ids, list):
+        return {"ok": False, "error": "Ungültige Reihenfolge."}, 400
+    try:
+        ordered_ids = [int(person_id) for person_id in ordered_ids]
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "Ungültige Personen-ID."}, 400
+    with get_db() as db:
+        existing = {int(row["id"]) for row in db.execute("SELECT id FROM people").fetchall()}
+        if set(ordered_ids) != existing or len(ordered_ids) != len(existing):
+            return {"ok": False, "error": "Die Reihenfolge ist unvollständig."}, 400
+        for position, person_id in enumerate(ordered_ids, start=1):
+            db.execute("UPDATE people SET sort_order=? WHERE id=?", (position * 10, person_id))
+    return {"ok": True}
 
 
 @app.post("/people/<int:person_id>/edit")
@@ -669,11 +720,16 @@ def import_data():
             db.execute("DELETE FROM people")
 
             for row in people:
-                item = _clean_record(row, ["id", "name", "birth_date", "notes", "gender", "profile_image", "created_at"])
+                item = _clean_record(row, ["id", "name", "birth_date", "notes", "gender", "profile_image", "sort_order", "created_at"])
                 item.setdefault("gender", "")
                 item.setdefault("profile_image", "")
+                item.setdefault("sort_order", 0)
                 cols = list(item)
                 db.execute(f"INSERT INTO people ({','.join(cols)}) VALUES ({','.join('?' for _ in cols)})", [item[c] for c in cols])
+            imported_people = db.execute("SELECT id, sort_order FROM people ORDER BY sort_order, name, id").fetchall()
+            if imported_people and all(int(row["sort_order"] or 0) == 0 for row in imported_people):
+                for position, row in enumerate(imported_people, start=1):
+                    db.execute("UPDATE people SET sort_order=? WHERE id=?", (position * 10, row["id"]))
             for row in events:
                 item = _clean_record(row, ["id", "person_id", "category", "title", "start_date", "end_date", "notes", "document_url", "is_important", "medication_dosage", "medication_reason", "medication_intolerance", "legacy_medication_id", "is_sick_note", "sick_from", "sick_to", "has_attest", "attest_type", "created_at", "updated_at"])
                 item.setdefault("is_important", 0)

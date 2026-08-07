@@ -86,13 +86,26 @@ const newEventTitle = document.getElementById("new-event-title");
 newEventCategory?.addEventListener("change", () => syncMedicationFields(newEventCategory, newMedicationFields, newEventTitleLabel, newEventTitle));
 syncMedicationFields(newEventCategory, newMedicationFields, newEventTitleLabel, newEventTitle);
 
+const newEventPerson = document.getElementById("new-event-person-id");
 document.querySelectorAll("[data-new-medication]").forEach((button) => {
   button.addEventListener("click", () => {
     closeModal(button.closest("dialog"), { force: true });
+    if (button.dataset.personId && newEventPerson) newEventPerson.value = button.dataset.personId;
     if (newEventCategory) newEventCategory.value = "Medikament";
     syncMedicationFields(newEventCategory, newMedicationFields, newEventTitleLabel, newEventTitle);
+    syncIllnessFields(newEventCategory, newIllnessFields);
     openModal("event-modal");
     setTimeout(() => newEventTitle?.focus(), 0);
+  });
+});
+
+const newAllergyPerson = document.getElementById("new-allergy-person-id");
+document.querySelectorAll("[data-new-allergy]").forEach((button) => {
+  button.addEventListener("click", () => {
+    closeModal(button.closest("dialog"), { force: true });
+    if (button.dataset.personId && newAllergyPerson) newAllergyPerson.value = button.dataset.personId;
+    openModal("allergy-modal");
+    setTimeout(() => document.querySelector("#allergy-modal input[name='name']")?.focus(), 0);
   });
 });
 
@@ -203,3 +216,55 @@ document.querySelectorAll("[data-edit-event]").forEach((button) => {
     syncIllnessFields(editCategory, editIllnessFields);
   });
 });
+
+
+// v0.6.0: Reihenfolge der Personen per Drag & Drop verwalten.
+const peopleSortList = document.getElementById("people-sort-list");
+if (peopleSortList) {
+  let dragged = null;
+  const rows = () => [...peopleSortList.querySelectorAll(".admin-person[data-person-id]")];
+
+  async function persistPeopleOrder() {
+    const ids = rows().map((row) => Number(row.dataset.personId));
+    try {
+      const response = await fetch("/people/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ people: ids }),
+      });
+      if (!response.ok) throw new Error("Reihenfolge konnte nicht gespeichert werden.");
+      window.location.reload();
+    } catch (error) {
+      alert(error.message || "Reihenfolge konnte nicht gespeichert werden.");
+      window.location.reload();
+    }
+  }
+
+  rows().forEach((row) => {
+    row.addEventListener("dragstart", (event) => {
+      dragged = row;
+      row.classList.add("dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", row.dataset.personId);
+    });
+    row.addEventListener("dragend", () => {
+      row.classList.remove("dragging");
+      rows().forEach((item) => item.classList.remove("drag-over"));
+      dragged = null;
+    });
+    row.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      if (!dragged || dragged === row) return;
+      row.classList.add("drag-over");
+      const rect = row.getBoundingClientRect();
+      const before = event.clientY < rect.top + rect.height / 2;
+      peopleSortList.insertBefore(dragged, before ? row : row.nextSibling);
+    });
+    row.addEventListener("dragleave", () => row.classList.remove("drag-over"));
+    row.addEventListener("drop", (event) => {
+      event.preventDefault();
+      rows().forEach((item) => item.classList.remove("drag-over"));
+      persistPeopleOrder();
+    });
+  });
+}

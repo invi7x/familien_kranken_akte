@@ -1,6 +1,6 @@
 # Backlog – Stinkis’ Krankenakten
 
-## In v0.5.1 erledigt
+## In v0.6.0 erledigt
 
 - Filterbox-Layout v2 mit sauber integrierter Zeitraumwahl und Aktionszeile.
 - Gemeinsames Seitenraster / konsistente Außenkanten.
@@ -87,3 +87,16 @@
 - Jahresauswertung für Krankmeldungen / Atteste
 - Pollenflug-Widget
 - Archivierung verstorbener Personen (Prio 99)
+
+## In v0.6.0 erledigt
+
+- Filteraktionen links und Zeitraumfelder rechts angeordnet
+- Wichtigkeitsfilter mit wiedererkennbarem `!`-Icon
+- Gemeinsamer Inhaltsrahmen / bündigere Außenkanten
+- Kontextübernahme beim Hinzufügen aus Allergie-/Medikamentenverwaltung
+- Personenverwaltung mit Icon-Aktionen statt Textlinks
+- Drag-&-Drop-Sortierung der Personen inklusive persistenter `sort_order`
+- Personenreihenfolge Bestandteil des JSON-Backups
+- Einheitliches „Hinzufügen“ und optisch zentriertes Plus-Icon
+- Monats-Trenner in der historischen Timeline
+- Harte Trennlinien zwischen Personengruppen in Mehrwertboxen entfernt

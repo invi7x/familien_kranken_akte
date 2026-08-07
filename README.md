@@ -1,36 +1,40 @@
-# Stinkis’ Krankenakten – Version 0.5.1
+# Stinkis’ Krankenakten – Version 0.6.0
 
 Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 
-## Neu in Version 0.5.1
+## Neu in Version 0.6.0
 
-- Filterbox neu geordnet: Such-/Kategoriezeile plus sauber integrierte Zeitraum-/Aktionszeile.
-- Personenleiste, Filter, Statusmeldungen und Dashboard nutzen ein konsistentes gemeinsames Seitenraster.
-- Mehr Abstand zwischen dem letzten Formularfeld und Speichern-/Löschen-Aktionen.
-- Dialoge schließen nicht mehr durch Klick auf den Hintergrund oder Escape.
-- Bei ungespeicherten Formularänderungen warnt „Schließen“ vor dem Verwerfen.
-- Offene, geänderte Dialoge schützen zusätzlich vor versehentlichem Verlassen/Neuladen der Seite.
-- Die ruhige Personenverwaltung für Allergien und Medikamente aus v0.5.0 bleibt erhalten.
+- Filterbox logisch neu angeordnet: **Filtern | Zurücksetzen** links, **Zeitraum von | bis** rechts.
+- Der Filter **„Nur wichtige“** nutzt jetzt dasselbe `!`-Kennzeichen wie wichtige Timeline-Einträge.
+- Gemeinsamer Inhaltsrahmen für Personenleiste, Filter, Timeline und rechte Mehrwertspalte; die Außenkanten sind auf dasselbe Raster gezogen.
+- Allergie-/Medikamenten-Popups übernehmen beim Hinzufügen automatisch die Person, aus deren Verwaltung sie geöffnet wurden.
+- Personenverwaltung verwendet konsequent Stift-/Mülleimer-Icons statt Bearbeiten-/Löschen-Text.
+- Personen lassen sich in der Verwaltung per **Drag & Drop** sortieren; die Reihenfolge gilt anschließend auch in Übersicht, Auswahlfeldern und Mehrwertboxen.
+- Die Personenreihenfolge wird im JSON-Backup über `sort_order` mitgesichert.
+- „Hinzufügen“ ist in Allergie- und Medikamentenbox vereinheitlicht; Plus-Symbole sind optisch zentriert.
+- Historische Timeline ist zusätzlich nach **Monaten** gegliedert (z. B. „August 2026“, „Juli 2026“).
+- Rechte Mehrwertboxen verzichten auf harte Trennlinien zwischen Personengruppen.
+- JSON-Schema **6**; ältere Sicherungen bleiben importierbar.
 
 ## Parallel testen
 
 Vorher in der laufenden Version über **Sicherung** einen aktuellen JSON-Export erstellen.
 
 ```bash
-cd /docker/stinkis-krankenakten-v0.5.1
+cd /docker/stinkis-krankenakten-v0.6.0
 sudo docker compose -f compose-test.yaml up -d --build
 ```
 
 Aufruf:
 
 ```text
-http://SERVER-IP:8492
+http://SERVER-IP:8493
 ```
 
 Test-Volume:
 
 ```text
-stinkis_v051_test_data
+stinkis_v060_test_data
 ```
 
 Damit bleibt die bisherige Installation unangetastet.
@@ -50,7 +54,7 @@ http://SERVER-IP:8484
 
 ## Backup
 
-Die Daten liegen standardmäßig im Docker-Volume `stinkis_krankenakten_data`. Zusätzlich kann über **Sicherung** ein JSON-Export erzeugt und wieder importiert werden.
+Die Daten liegen standardmäßig im Docker-Volume `stinkis_krankenakten_data`. Zusätzlich kann über **Sicherung** ein JSON-Export erzeugt und wieder importiert werden. Profilbilder und die benutzerdefinierte Personenreihenfolge sind Bestandteil des Exports.
 
 ## Sicherheit
 

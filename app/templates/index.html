@@ -53,16 +53,16 @@
       <label class="filter-search"><span>Suche</span><input type="search" name="q" value="{{ q }}" placeholder="Antibiotika, Grippe, HWS ..."></label>
       <label><span>Kategorie</span><select name="category"><option value="">Alle Kategorien</option>{% for category in categories %}<option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category_icons[category] }} {{ category }}</option>{% endfor %}</select></label>
       <label><span>Einträge</span><select name="per_page">{% for size in (20, 50, 100) %}<option value="{{ size }}" {% if per_page == size %}selected{% endif %}>{{ size }} / Seite</option>{% endfor %}</select></label>
-      <label class="important-filter"><input type="checkbox" name="important" value="1" {% if important_only %}checked{% endif %}> <span>Nur wichtige</span></label>
+      <label class="important-filter"><input type="checkbox" name="important" value="1" {% if important_only %}checked{% endif %}> <span class="important-filter-icon" aria-hidden="true">!</span><span>Nur wichtige</span></label>
     </div>
     <div class="filter-secondary-row">
-      <div class="date-range-filter">
-        <label><span>Zeitraum von</span><input type="date" name="date_from" value="{{ date_from }}"></label>
-        <label><span>bis</span><input type="date" name="date_to" value="{{ date_to }}"></label>
-      </div>
       <div class="filter-actions">
         <button class="btn" type="submit">Filtern</button>
         <a class="btn secondary" href="{{ url_for('index') }}">Zurücksetzen</a>
+      </div>
+      <div class="date-range-filter">
+        <label><span>Zeitraum von</span><input type="date" name="date_from" value="{{ date_from }}"></label>
+        <label><span>bis</span><input type="date" name="date_to" value="{{ date_to }}"></label>
       </div>
     </div>
   </form>
@@ -86,9 +86,10 @@
     {% endif %}
 
     <div class="timeline-history-heading"><h3>Bisheriger Verlauf</h3></div>
-    <div class="timeline">
-      {% for event in events %}
-        {{ render_event(event, false) }}
+    <div class="timeline timeline-history">
+      {% for month in history_month_groups %}
+        <div class="month-divider" aria-label="{{ month.label }}"><span>{{ month.label }}</span></div>
+        {% for event in month["items"] %}{{ render_event(event, false) }}{% endfor %}
       {% else %}<div class="empty-state"><h3>Noch keine passenden bisherigen Einträge</h3><p>Lege den ersten Gesundheits-Eintrag an oder ändere die Filter.</p></div>{% endfor %}
     </div>
 
@@ -116,7 +117,7 @@
     </section>
 
     <section class="panel">
-      <div class="panel-head"><h2>💊 Medikamente</h2><button class="add-action" type="button" data-new-medication><span class="add-action-icon" aria-hidden="true">+</span><span>Eintragen</span></button></div>
+      <div class="panel-head"><h2>💊 Medikamente</h2><button class="add-action" type="button" data-new-medication><span class="add-action-icon" aria-hidden="true">+</span><span>Hinzufügen</span></button></div>
       <div class="person-groups">
         {% for group in medication_groups %}
           <div class="person-group">
