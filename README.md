@@ -1,8 +1,8 @@
-# Stinkis’ Krankenakten – Version 0.6.0
+# Stinkis’ Krankenakten – Version 0.6.1
 
 Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 
-## Neu in Version 0.6.0
+## Neu in Version 0.6.1
 
 - Filterbox logisch neu angeordnet: **Filtern | Zurücksetzen** links, **Zeitraum von | bis** rechts.
 - Der Filter **„Nur wichtige“** nutzt jetzt dasselbe `!`-Kennzeichen wie wichtige Timeline-Einträge.
@@ -15,26 +15,30 @@ Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 - Historische Timeline ist zusätzlich nach **Monaten** gegliedert (z. B. „August 2026“, „Juli 2026“).
 - Rechte Mehrwertboxen verzichten auf harte Trennlinien zwischen Personengruppen.
 - JSON-Schema **6**; ältere Sicherungen bleiben importierbar.
+- Personen-Sortierung speichert jetzt **ohne Seitenreload**; die Verwaltung bleibt offen, bis sie bewusst geschlossen wird.
+- Eigener, kompakter **Lösch-Bestätigungsdialog** statt Browser-`confirm()` mit URL-Anzeige.
+- Timeline zeigt zusätzlich die Status-Tags **Geplant**, **Laufend** und **Abgeschlossen**.
+- Zweispaltenlayout wird strikt auf denselben Inhaltsrahmen wie Personen- und Filterbereich begrenzt.
 
 ## Parallel testen
 
 Vorher in der laufenden Version über **Sicherung** einen aktuellen JSON-Export erstellen.
 
 ```bash
-cd /docker/stinkis-krankenakten-v0.6.0
+cd /docker/stinkis-krankenakten-v0.6.1
 sudo docker compose -f compose-test.yaml up -d --build
 ```
 
 Aufruf:
 
 ```text
-http://SERVER-IP:8493
+http://SERVER-IP:8494
 ```
 
 Test-Volume:
 
 ```text
-stinkis_v060_test_data
+stinkis_v061_test_data
 ```
 
 Damit bleibt die bisherige Installation unangetastet.

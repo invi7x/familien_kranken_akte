@@ -1,4 +1,6 @@
 const modalFormSnapshots = new WeakMap();
+let peopleOrderChanged = false;
+
 
 function snapshotForm(form) {
   if (!form) return "";
@@ -47,7 +49,14 @@ document.querySelectorAll("[data-open-modal]").forEach((button) => {
 });
 
 document.querySelectorAll("[data-close-modal]").forEach((button) => {
-  button.addEventListener("click", () => closeModal(button.closest("dialog")));
+  button.addEventListener("click", () => {
+    const modal = button.closest("dialog");
+    const isPeopleAdmin = modal?.id === "people-admin-modal";
+    if (!closeModal(modal)) return;
+    // Die Sortierung wird im Hintergrund gespeichert. Erst wenn der Nutzer die
+    // Personenverwaltung bewusst schließt, laden wir die Übersichten neu.
+    if (isPeopleAdmin && peopleOrderChanged) window.location.reload();
+  });
 });
 
 document.querySelectorAll("dialog").forEach((dialog) => {
@@ -63,9 +72,51 @@ window.addEventListener("beforeunload", (event) => {
   event.returnValue = "";
 });
 
+const confirmModal = document.getElementById("confirm-modal");
+const confirmTitle = document.getElementById("confirm-title");
+const confirmMessage = document.getElementById("confirm-message");
+const confirmOk = document.getElementById("confirm-ok");
+const confirmCancel = document.getElementById("confirm-cancel");
+let pendingConfirmAction = null;
+
+function requestConfirmation(message, onConfirm, title = "Wirklich löschen?") {
+  if (!confirmModal) {
+    // Fallback nur für den unwahrscheinlichen Fall, dass das Dialog-Markup fehlt.
+    if (window.confirm(message)) onConfirm();
+    return;
+  }
+  pendingConfirmAction = onConfirm;
+  if (confirmTitle) confirmTitle.textContent = title;
+  if (confirmMessage) confirmMessage.textContent = message || "Dieser Eintrag wird dauerhaft entfernt.";
+  if (!confirmModal.open) confirmModal.showModal();
+  setTimeout(() => confirmCancel?.focus(), 0);
+}
+
+confirmCancel?.addEventListener("click", () => {
+  pendingConfirmAction = null;
+  confirmModal?.close();
+});
+
+confirmOk?.addEventListener("click", () => {
+  const action = pendingConfirmAction;
+  pendingConfirmAction = null;
+  confirmModal?.close();
+  action?.();
+});
+
+confirmModal?.addEventListener("cancel", (event) => event.preventDefault());
+
 document.querySelectorAll("[data-confirm]").forEach((form) => {
   form.addEventListener("submit", (event) => {
-    if (!confirm(form.dataset.confirm)) event.preventDefault();
+    if (form.dataset.confirmed === "1") {
+      delete form.dataset.confirmed;
+      return;
+    }
+    event.preventDefault();
+    requestConfirmation(form.dataset.confirm, () => {
+      form.dataset.confirmed = "1";
+      form.requestSubmit();
+    }, form.dataset.confirmTitle || "Wirklich löschen?");
   });
 });
 
@@ -139,12 +190,14 @@ document.querySelectorAll("[data-edit-event]").forEach((button) => {
 
 deleteBtn?.addEventListener("click", () => {
   const eventId = deleteBtn.dataset.eventId;
-  if (!eventId || !confirm("Eintrag wirklich löschen?")) return;
-  const form = document.createElement("form");
-  form.method = "post";
-  form.action = `/events/${eventId}/delete`;
-  document.body.appendChild(form);
-  form.submit();
+  if (!eventId) return;
+  requestConfirmation("Eintrag wirklich löschen? Dieser Eintrag wird dauerhaft entfernt.", () => {
+    const form = document.createElement("form");
+    form.method = "post";
+    form.action = `/events/${eventId}/delete`;
+    document.body.appendChild(form);
+    form.submit();
+  });
 });
 
 const editPersonForm = document.getElementById("edit-person-form");
@@ -218,11 +271,22 @@ document.querySelectorAll("[data-edit-event]").forEach((button) => {
 });
 
 
-// v0.6.0: Reihenfolge der Personen per Drag & Drop verwalten.
+// v0.6.1: Reihenfolge im Hintergrund speichern, ohne den Verwaltungsdialog zu schließen.
 const peopleSortList = document.getElementById("people-sort-list");
+const peopleSortStatus = document.getElementById("people-sort-status");
 if (peopleSortList) {
   let dragged = null;
+  let saveTimer = null;
   const rows = () => [...peopleSortList.querySelectorAll(".admin-person[data-person-id]")];
+
+  function setPeopleSortStatus(message, type = "success") {
+    if (!peopleSortStatus) return;
+    peopleSortStatus.hidden = false;
+    peopleSortStatus.textContent = message;
+    peopleSortStatus.dataset.type = type;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { peopleSortStatus.hidden = true; }, 1800);
+  }
 
   async function persistPeopleOrder() {
     const ids = rows().map((row) => Number(row.dataset.personId));
@@ -232,22 +296,32 @@ if (peopleSortList) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ people: ids }),
       });
-      if (!response.ok) throw new Error("Reihenfolge konnte nicht gespeichert werden.");
-      window.location.reload();
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.ok !== true) throw new Error(payload.error || "Reihenfolge konnte nicht gespeichert werden.");
+      peopleOrderChanged = true;
+      setPeopleSortStatus("✓ Reihenfolge gespeichert");
     } catch (error) {
-      alert(error.message || "Reihenfolge konnte nicht gespeichert werden.");
-      window.location.reload();
+      setPeopleSortStatus(error.message || "Reihenfolge konnte nicht gespeichert werden.", "error");
     }
   }
 
   rows().forEach((row) => {
+    // Nur der sichtbare Griff startet eine Sortierung; so verschiebt man
+    // Personen nicht versehentlich beim Klicken auf Bearbeiten/Löschen.
+    const handle = row.querySelector(".drag-handle");
+    row.draggable = false;
+    handle?.addEventListener("mousedown", () => { row.draggable = true; });
+    handle?.addEventListener("mouseup", () => { if (!dragged) row.draggable = false; });
+
     row.addEventListener("dragstart", (event) => {
+      if (!row.draggable) { event.preventDefault(); return; }
       dragged = row;
       row.classList.add("dragging");
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData("text/plain", row.dataset.personId);
     });
     row.addEventListener("dragend", () => {
+      row.draggable = false;
       row.classList.remove("dragging");
       rows().forEach((item) => item.classList.remove("drag-over"));
       dragged = null;
@@ -268,3 +342,4 @@ if (peopleSortList) {
     });
   });
 }
+

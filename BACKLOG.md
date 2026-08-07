@@ -1,6 +1,6 @@
 # Backlog – Stinkis’ Krankenakten
 
-## In v0.6.0 erledigt
+## In v0.6.1 erledigt
 
 - Filterbox-Layout v2 mit sauber integrierter Zeitraumwahl und Aktionszeile.
 - Gemeinsames Seitenraster / konsistente Außenkanten.
@@ -88,7 +88,7 @@
 - Pollenflug-Widget
 - Archivierung verstorbener Personen (Prio 99)
 
-## In v0.6.0 erledigt
+## In v0.6.1 erledigt
 
 - Filteraktionen links und Zeitraumfelder rechts angeordnet
 - Wichtigkeitsfilter mit wiedererkennbarem `!`-Icon
@@ -100,3 +100,9 @@
 - Einheitliches „Hinzufügen“ und optisch zentriertes Plus-Icon
 - Monats-Trenner in der historischen Timeline
 - Harte Trennlinien zwischen Personengruppen in Mehrwertboxen entfernt
+
+## Erledigt in v0.6.1
+- [x] Drag & Drop ohne Dialog-Schließen / Seitenreload
+- [x] App-eigener Löschdialog
+- [x] Timeline-Status-Tags Geplant / Laufend / Abgeschlossen
+- [x] Rechte Außenkante über ein strikt begrenztes gemeinsames Raster korrigiert

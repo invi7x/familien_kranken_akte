@@ -6,7 +6,21 @@
   <div class="timeline-card">
     <div class="event-head">
       <div>
-        <div class="event-date">{{ event.start_date }}{% if event.end_date %} bis {{ event.end_date }}{% endif %}{% if planned %}<span class="planned-label">🗓 Geplant</span>{% endif %}</div>
+        <div class="event-date">{{ event.start_date }}{% if event.end_date %} bis {{ event.end_date }}{% endif %}
+          {% if planned %}
+            <span class="status-label status-planned">🗓 Geplant</span>
+          {% elif event.end_date and event.end_date < today %}
+            <span class="status-label status-completed">✓ Abgeschlossen</span>
+          {% elif event.end_date and event.start_date <= today and event.end_date >= today %}
+            <span class="status-label status-running">● Laufend</span>
+          {% elif not event.end_date and event.start_date == today %}
+            <span class="status-label status-running">● Laufend</span>
+          {% elif not event.end_date and event.start_date < today and event.category in ['Medikament', 'Krankheit'] %}
+            <span class="status-label status-running">● Laufend</span>
+          {% elif not event.end_date and event.start_date < today %}
+            <span class="status-label status-completed">✓ Abgeschlossen</span>
+          {% endif %}
+        </div>
         <h3>{% if event.is_important %}<span class="important-badge" title="Wichtiger Eintrag">!</span>{% endif %} {{ event.title }}</h3>
         <div class="event-meta"><span class="event-person"><span class="event-avatar">{% if event.person_profile_image %}<img src="{{ event.person_profile_image }}" alt="">{% else %}{{ event.person_name[:1]|upper }}{% endif %}</span><span>{{ event.person_name }}</span></span><span class="event-meta-sep">·</span> {{ category_icons.get(event.category, '') }} {{ event.category }}</div>
       </div>
