@@ -201,12 +201,55 @@ deleteBtn?.addEventListener("click", () => {
 });
 
 const editPersonForm = document.getElementById("edit-person-form");
+const editProfileFile = document.getElementById("edit-profile-file");
+const editProfileFileName = document.getElementById("edit-profile-file-name");
+const editProfilePreviewImage = document.getElementById("edit-profile-preview-image");
+const editProfileInitial = document.getElementById("edit-profile-initial");
+const editRemoveProfileImage = document.getElementById("edit-remove-profile-image");
+let currentProfileImage = "";
+
+function setProfilePreview(src, name = "") {
+  if (src) {
+    editProfilePreviewImage.src = src;
+    editProfilePreviewImage.hidden = false;
+    editProfileInitial.hidden = true;
+  } else {
+    editProfilePreviewImage.removeAttribute("src");
+    editProfilePreviewImage.hidden = true;
+    editProfileInitial.textContent = (name || "?").trim().charAt(0).toUpperCase() || "?";
+    editProfileInitial.hidden = false;
+  }
+}
+
+editProfileFile?.addEventListener("change", () => {
+  const file = editProfileFile.files?.[0];
+  editProfileFileName.textContent = file ? file.name : "Kein neues Bild ausgewählt";
+  if (!file) {
+    setProfilePreview(currentProfileImage, document.getElementById("edit-person-name")?.value);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => setProfilePreview(String(reader.result || ""), document.getElementById("edit-person-name")?.value);
+  reader.readAsDataURL(file);
+  if (editRemoveProfileImage) editRemoveProfileImage.checked = false;
+});
+
+editRemoveProfileImage?.addEventListener("change", () => {
+  if (editRemoveProfileImage.checked) setProfilePreview("", document.getElementById("edit-person-name")?.value);
+  else if (!editProfileFile?.files?.length) setProfilePreview(currentProfileImage, document.getElementById("edit-person-name")?.value);
+});
+
 document.querySelectorAll("[data-edit-person]").forEach((button) => {
   button.addEventListener("click", () => {
     document.getElementById("edit-person-name").value = button.dataset.name;
     document.getElementById("edit-person-birth-date").value = button.dataset.birthDate;
     document.getElementById("edit-person-gender").value = button.dataset.gender;
     document.getElementById("edit-person-notes").value = button.dataset.notes;
+    currentProfileImage = button.dataset.profileImage || "";
+    if (editProfileFile) editProfileFile.value = "";
+    if (editProfileFileName) editProfileFileName.textContent = "Kein neues Bild ausgewählt";
+    if (editRemoveProfileImage) editRemoveProfileImage.checked = false;
+    setProfilePreview(currentProfileImage, button.dataset.name);
     editPersonForm.action = `/people/${button.dataset.id}/edit`;
     closeModal(button.closest("dialog"), { force: true });
     openModal("edit-person-modal");
@@ -343,3 +386,20 @@ if (peopleSortList) {
   });
 }
 
+
+
+// v0.6.2 – kommende Einträge kompakt halten, bei Bedarf aufklappen.
+const futureTimeline = document.getElementById("future-timeline");
+const futureToggle = document.getElementById("future-toggle");
+const futureItems = futureTimeline ? Array.from(futureTimeline.querySelectorAll(":scope > .timeline-item")) : [];
+if (futureTimeline?.dataset.collapseFuture === "1" && futureItems.length > 5) {
+  futureItems.slice(5).forEach((item) => { item.hidden = true; item.classList.add("future-extra"); });
+}
+futureToggle?.addEventListener("click", () => {
+  const extras = futureItems.slice(5);
+  const currentlyHidden = extras.some((item) => item.hidden);
+  extras.forEach((item) => { item.hidden = !currentlyHidden; });
+  futureToggle.textContent = currentlyHidden
+    ? "Weniger geplante Einträge anzeigen"
+    : `+ Weitere ${futureToggle.dataset.extra || extras.length} geplante Einträge anzeigen`;
+});

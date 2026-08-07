@@ -1,12 +1,16 @@
 # Backlog – Stinkis’ Krankenakten
 
-## In v0.6.1 erledigt
+## In v0.6.2 erledigt
 
-- Filterbox-Layout v2 mit sauber integrierter Zeitraumwahl und Aktionszeile.
-- Gemeinsames Seitenraster / konsistente Außenkanten.
-- Mehr Abstand vor unteren Formularaktionen.
-- Persistente Dialoge: kein Schließen über Backdrop oder Escape.
-- Warnung bei bewusstem Schließen mit ungespeicherten Änderungen.
+- Statusfilter Geplant / Laufend / Abgeschlossen in der Timeline-Suche.
+- Korrekte Gesamt-Trefferanzeige inklusive zukünftiger Einträge.
+- Zukunftsvorschau auf fünf Einträge begrenzt, mit Auf-/Zuklappen weiterer Termine.
+- Bei reinem Zukunftsfilter Pagination mit 20/50/100 Einträgen.
+- Zeitraumfelder kompakter und Statusauswahl rechts daneben.
+- „Nur wichtige“-Filter optisch auf gleiche Feldhöhe gebracht.
+- Plus-Aktionen in den rechten Boxen auf reines Icon reduziert.
+- Geschlechtssymbol näher an den Personennamen gerückt.
+- Moderner Profilbild-Editor mit Avatar-/Initialenvorschau und verstecktem nativen File-Input.
 
 ## Nächste Ausbaustufen
 
@@ -16,6 +20,7 @@
 - Profilbilder automatisch verkleinern und optional als Datei statt im JSON sichern
 - Dokumentenanhänge zusätzlich zu externen URL-/Links
 - Pollenflug-Widget mit externer Datenquelle und persönlicher Allergie-Zuordnung
+- Grafischer Gesundheitsverlauf / interaktive Zeitachse unter Berichte (Marker für Ereignisse, Balken für Zeiträume, Zoom Monat/Jahr/Gesamt)
 - Optionaler Status „verstorben am“ mit Archivierung und Schreibschutz (Priorität 99)
 - Spätere neutrale Umbenennung für eine öffentliche Veröffentlichung
 
@@ -88,7 +93,7 @@
 - Pollenflug-Widget
 - Archivierung verstorbener Personen (Prio 99)
 
-## In v0.6.1 erledigt
+## In v0.6.2 erledigt
 
 - Filteraktionen links und Zeitraumfelder rechts angeordnet
 - Wichtigkeitsfilter mit wiedererkennbarem `!`-Icon
@@ -101,7 +106,7 @@
 - Monats-Trenner in der historischen Timeline
 - Harte Trennlinien zwischen Personengruppen in Mehrwertboxen entfernt
 
-## Erledigt in v0.6.1
+## Erledigt in v0.6.2
 - [x] Drag & Drop ohne Dialog-Schließen / Seitenreload
 - [x] App-eigener Löschdialog
 - [x] Timeline-Status-Tags Geplant / Laufend / Abgeschlossen

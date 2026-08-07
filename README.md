@@ -1,44 +1,39 @@
-# Stinkis’ Krankenakten – Version 0.6.1
+# Stinkis’ Krankenakten – Version 0.6.2
 
 Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 
-## Neu in Version 0.6.1
+## Neu in Version 0.6.2
 
-- Filterbox logisch neu angeordnet: **Filtern | Zurücksetzen** links, **Zeitraum von | bis** rechts.
-- Der Filter **„Nur wichtige“** nutzt jetzt dasselbe `!`-Kennzeichen wie wichtige Timeline-Einträge.
-- Gemeinsamer Inhaltsrahmen für Personenleiste, Filter, Timeline und rechte Mehrwertspalte; die Außenkanten sind auf dasselbe Raster gezogen.
-- Allergie-/Medikamenten-Popups übernehmen beim Hinzufügen automatisch die Person, aus deren Verwaltung sie geöffnet wurden.
-- Personenverwaltung verwendet konsequent Stift-/Mülleimer-Icons statt Bearbeiten-/Löschen-Text.
-- Personen lassen sich in der Verwaltung per **Drag & Drop** sortieren; die Reihenfolge gilt anschließend auch in Übersicht, Auswahlfeldern und Mehrwertboxen.
-- Die Personenreihenfolge wird im JSON-Backup über `sort_order` mitgesichert.
-- „Hinzufügen“ ist in Allergie- und Medikamentenbox vereinheitlicht; Plus-Symbole sind optisch zentriert.
-- Historische Timeline ist zusätzlich nach **Monaten** gegliedert (z. B. „August 2026“, „Juli 2026“).
-- Rechte Mehrwertboxen verzichten auf harte Trennlinien zwischen Personengruppen.
-- JSON-Schema **6**; ältere Sicherungen bleiben importierbar.
-- Personen-Sortierung speichert jetzt **ohne Seitenreload**; die Verwaltung bleibt offen, bis sie bewusst geschlossen wird.
-- Eigener, kompakter **Lösch-Bestätigungsdialog** statt Browser-`confirm()` mit URL-Anzeige.
-- Timeline zeigt zusätzlich die Status-Tags **Geplant**, **Laufend** und **Abgeschlossen**.
-- Zweispaltenlayout wird strikt auf denselben Inhaltsrahmen wie Personen- und Filterbereich begrenzt.
+- Neuer Timeline-Filter **Status** mit **Geplant / Laufend / Abgeschlossen**.
+- Die beiden Zeitraumfelder sind kompakter; der Statusfilter sitzt rechts daneben.
+- **Nur wichtige** ist auf dieselbe Feldhöhe wie die übrigen Filter gebracht.
+- Trefferanzeige zählt jetzt **Zukunft + Vergangenheit** und weist beide Anteile getrennt aus.
+- Kommende Einträge zeigen standardmäßig höchstens **5 Termine**; weitere können mit einem Klick ein-/ausgeblendet werden.
+- Bei Filter **Status = Geplant** greift die normale 20/50/100-Pagination auch für zukünftige Einträge.
+- In Allergie- und Medikamentenboxen bleibt nur noch das kompakte blaue **+** ohne langen „Hinzufügen“-Text.
+- Geschlechtssymbol steht in den Mehrwertboxen direkt neben dem Personennamen.
+- Profilbild-Bereich in **Person bearbeiten** modernisiert: aktueller Avatar/Initialen, eigener Bild-auswählen-Button und Dateivorschau.
+- Datenschema bleibt **Version 6**; v0.6.1-Backups sind direkt kompatibel.
 
 ## Parallel testen
 
 Vorher in der laufenden Version über **Sicherung** einen aktuellen JSON-Export erstellen.
 
 ```bash
-cd /docker/stinkis-krankenakten-v0.6.1
+cd /docker/stinkis-krankenakten-v0.6.2
 sudo docker compose -f compose-test.yaml up -d --build
 ```
 
 Aufruf:
 
 ```text
-http://SERVER-IP:8494
+http://SERVER-IP:8495
 ```
 
 Test-Volume:
 
 ```text
-stinkis_v061_test_data
+stinkis_v062_test_data
 ```
 
 Damit bleibt die bisherige Installation unangetastet.

@@ -23,7 +23,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DB_PATH = DATA_DIR / "stinkis.db"
-APP_VERSION = "0.6.1"
+APP_VERSION = "0.6.2"
 SCHEMA_VERSION = 6
 MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024
 
@@ -243,6 +243,9 @@ def index():
     person_id = request.args.get("person_id", "").strip()
     category = request.args.get("category", "").strip()
     important_only = request.args.get("important") == "1"
+    status_filter = request.args.get("status", "").strip()
+    if status_filter not in {"", "planned", "running", "completed"}:
+        status_filter = ""
     date_from = request.args.get("date_from", "").strip()
     date_to = request.args.get("date_to", "").strip()
 
@@ -269,8 +272,6 @@ def index():
         params.append(category)
     if important_only:
         base_where.append("e.is_important = 1")
-    # Zeitraumfilter arbeitet mit Überschneidungen: Ein mehrtägiger Eintrag
-    # wird gefunden, sobald irgendein Teil seines Zeitraums im Filter liegt.
     if date_from:
         base_where.append("COALESCE(e.end_date, e.start_date) >= ?")
         params.append(date_from)
@@ -292,48 +293,74 @@ def index():
         )
         params.extend([like] * 9)
 
+    # Dieselbe Statuslogik wie die Tags der Timeline.
+    if status_filter == "planned":
+        base_where.append("e.start_date > ?")
+        params.append(today_iso)
+    elif status_filter == "running":
+        base_where.append(
+            """e.start_date <= ? AND (
+                (e.end_date IS NOT NULL AND e.end_date >= ?)
+                OR (e.end_date IS NULL AND (e.start_date = ? OR e.category IN ('Medikament','Krankheit')))
+            )"""
+        )
+        params.extend([today_iso, today_iso, today_iso])
+    elif status_filter == "completed":
+        base_where.append(
+            """e.start_date <= ? AND (
+                (e.end_date IS NOT NULL AND e.end_date < ?)
+                OR (e.end_date IS NULL AND e.start_date < ? AND e.category NOT IN ('Medikament','Krankheit'))
+            )"""
+        )
+        params.extend([today_iso, today_iso, today_iso])
+
     base_where_sql = " AND ".join(base_where)
     history_where_sql = f"{base_where_sql} AND e.start_date <= ?"
     future_where_sql = f"{base_where_sql} AND e.start_date > ?"
 
     with get_db() as db:
-        total_events = int(
-            db.execute(
-                f"""
-                SELECT COUNT(*) AS total
-                FROM events e JOIN people p ON p.id = e.person_id
-                WHERE {history_where_sql}
-                """,
-                [*params, today_iso],
-            ).fetchone()["total"]
-        )
-        total_pages = max(1, (total_events + per_page - 1) // per_page)
+        total_events = int(db.execute(
+            f"""SELECT COUNT(*) AS total FROM events e JOIN people p ON p.id=e.person_id
+                WHERE {history_where_sql}""", [*params, today_iso]
+        ).fetchone()["total"])
+        total_future_events = int(db.execute(
+            f"""SELECT COUNT(*) AS total FROM events e JOIN people p ON p.id=e.person_id
+                WHERE {future_where_sql}""", [*params, today_iso]
+        ).fetchone()["total"])
+        total_matches = total_events + total_future_events
+
+        # Bei reinem Zukunftsfilter wird die Zukunft wie die Historie 20/50/100 paginiert.
+        planned_only = status_filter == "planned"
+        pagination_total = total_future_events if planned_only else total_events
+        total_pages = max(1, (pagination_total + per_page - 1) // per_page)
         if page > total_pages:
             page = total_pages
         offset = (page - 1) * per_page
 
-        # Historie wird paginiert und absteigend dargestellt.
-        events = db.execute(
-            f"""
-            SELECT e.*, p.name AS person_name, p.profile_image AS person_profile_image
-            FROM events e JOIN people p ON p.id = e.person_id
-            WHERE {history_where_sql}
-            ORDER BY e.start_date DESC, e.id DESC
-            LIMIT ? OFFSET ?
-            """,
-            [*params, today_iso, per_page, offset],
-        ).fetchall()
-
-        # Kommende Einträge bleiben immer sichtbar und werden nicht paginiert.
-        future_events = db.execute(
-            f"""
-            SELECT e.*, p.name AS person_name, p.profile_image AS person_profile_image
-            FROM events e JOIN people p ON p.id = e.person_id
-            WHERE {future_where_sql}
-            ORDER BY e.start_date ASC, e.id ASC
-            """,
-            [*params, today_iso],
-        ).fetchall()
+        if planned_only:
+            events = []
+            future_events = db.execute(
+                f"""SELECT e.*, p.name AS person_name, p.profile_image AS person_profile_image
+                    FROM events e JOIN people p ON p.id=e.person_id
+                    WHERE {future_where_sql}
+                    ORDER BY e.start_date ASC, e.id ASC LIMIT ? OFFSET ?""",
+                [*params, today_iso, per_page, offset],
+            ).fetchall()
+        else:
+            events = db.execute(
+                f"""SELECT e.*, p.name AS person_name, p.profile_image AS person_profile_image
+                    FROM events e JOIN people p ON p.id=e.person_id
+                    WHERE {history_where_sql}
+                    ORDER BY e.start_date DESC, e.id DESC LIMIT ? OFFSET ?""",
+                [*params, today_iso, per_page, offset],
+            ).fetchall()
+            future_events = db.execute(
+                f"""SELECT e.*, p.name AS person_name, p.profile_image AS person_profile_image
+                    FROM events e JOIN people p ON p.id=e.person_id
+                    WHERE {future_where_sql}
+                    ORDER BY e.start_date ASC, e.id ASC""",
+                [*params, today_iso],
+            ).fetchall()
 
         people = db.execute("SELECT * FROM people ORDER BY sort_order, name, id").fetchall()
 
@@ -343,13 +370,9 @@ def index():
             side_where = " WHERE a.person_id = ?"
             side_params.append(person_id)
         allergies = db.execute(
-            f"""
-            SELECT a.*, p.name AS person_name, p.profile_image, p.gender, p.sort_order
-            FROM allergies a JOIN people p ON p.id = a.person_id
-            {side_where}
-            ORDER BY p.sort_order, p.name, a.name
-            """,
-            side_params,
+            f"""SELECT a.*, p.name AS person_name, p.profile_image, p.gender, p.sort_order
+                FROM allergies a JOIN people p ON p.id=a.person_id {side_where}
+                ORDER BY p.sort_order, p.name, a.name""", side_params
         ).fetchall()
 
         med_params: list[Any] = []
@@ -358,28 +381,23 @@ def index():
             med_person_where = " AND e.person_id = ?"
             med_params.append(person_id)
         medications = db.execute(
-            f"""
-            SELECT e.id, e.person_id, e.title AS name, e.medication_dosage AS dosage,
-                   e.medication_reason AS reason, e.start_date, e.end_date,
-                   e.medication_intolerance AS intolerance, e.notes, e.document_url,
-                   e.is_important, p.name AS person_name, p.profile_image, p.gender, p.sort_order
-            FROM events e JOIN people p ON p.id = e.person_id
-            WHERE e.category = 'Medikament' {med_person_where}
-            ORDER BY p.sort_order, p.name, e.start_date DESC, e.title
-            """,
-            med_params,
+            f"""SELECT e.id, e.person_id, e.title AS name, e.medication_dosage AS dosage,
+                       e.medication_reason AS reason, e.start_date, e.end_date,
+                       e.medication_intolerance AS intolerance, e.notes, e.document_url,
+                       e.is_important, p.name AS person_name, p.profile_image, p.gender, p.sort_order
+                FROM events e JOIN people p ON p.id=e.person_id
+                WHERE e.category='Medikament' {med_person_where}
+                ORDER BY p.sort_order, p.name, e.start_date DESC, e.title""", med_params
         ).fetchall()
 
     active_allergies = [a for a in allergies if not a["end_date"] or a["end_date"] > today_iso]
     ended_allergies = [a for a in allergies if a["end_date"] and a["end_date"] <= today_iso]
-
-    active_medications = [
-        m for m in medications
-        if m["start_date"] <= today_iso and (not m["end_date"] or m["end_date"] >= today_iso)
-    ]
+    active_medications = [m for m in medications if m["start_date"] <= today_iso and (not m["end_date"] or m["end_date"] >= today_iso)]
     ended_medications = [m for m in medications if m["end_date"] and m["end_date"] < today_iso]
-    page_start = offset + 1 if total_events else 0
-    page_end = min(offset + len(events), total_events)
+
+    page_start = offset + 1 if pagination_total else 0
+    shown_count = len(future_events) if planned_only else len(events)
+    page_end = min(offset + shown_count, pagination_total)
 
     return render_template(
         "index.html",
@@ -395,12 +413,15 @@ def index():
         selected_person_id=person_id,
         selected_category=category,
         important_only=important_only,
+        status_filter=status_filter,
         date_from=date_from,
         date_to=date_to,
         page=page,
         per_page=per_page,
         total_events=total_events,
-        total_future_events=len(future_events),
+        total_future_events=total_future_events,
+        total_matches=total_matches,
+        planned_only=planned_only,
         total_pages=total_pages,
         page_start=page_start,
         page_end=page_end,
