@@ -23,9 +23,38 @@ document.querySelectorAll("[data-confirm]").forEach((form) => {
   });
 });
 
+function syncMedicationFields(categorySelect, fields, titleLabel, titleInput) {
+  if (!categorySelect || !fields) return;
+  const isMedication = categorySelect.value === "Medikament";
+  fields.hidden = !isMedication;
+  if (titleLabel) titleLabel.textContent = isMedication ? "Medikament" : "Titel";
+  if (titleInput) {
+    titleInput.placeholder = isMedication ? "z. B. Cetirizin" : "z. B. Grippe";
+  }
+}
+
+const newEventCategory = document.getElementById("new-event-category");
+const newMedicationFields = document.getElementById("new-medication-fields");
+const newEventTitleLabel = document.getElementById("new-event-title-label");
+const newEventTitle = document.getElementById("new-event-title");
+newEventCategory?.addEventListener("change", () => syncMedicationFields(newEventCategory, newMedicationFields, newEventTitleLabel, newEventTitle));
+syncMedicationFields(newEventCategory, newMedicationFields, newEventTitleLabel, newEventTitle);
+
+document.querySelectorAll("[data-new-medication]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (newEventCategory) newEventCategory.value = "Medikament";
+    syncMedicationFields(newEventCategory, newMedicationFields, newEventTitleLabel, newEventTitle);
+    openModal("event-modal");
+    setTimeout(() => newEventTitle?.focus(), 0);
+  });
+});
+
 const editModal = document.getElementById("edit-event-modal");
 const editForm = document.getElementById("edit-event-form");
 const deleteBtn = document.getElementById("delete-event-btn");
+const editCategory = document.getElementById("edit-category");
+const editMedicationFields = document.getElementById("edit-medication-fields");
+editCategory?.addEventListener("change", () => syncMedicationFields(editCategory, editMedicationFields));
 
 document.querySelectorAll("[data-edit-event]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -37,8 +66,13 @@ document.querySelectorAll("[data-edit-event]").forEach((button) => {
     document.getElementById("edit-notes").value = button.dataset.notes;
     document.getElementById("edit-document-url").value = button.dataset.documentUrl;
     document.getElementById("edit-is-important").checked = button.dataset.isImportant === "1";
+    document.getElementById("edit-medication-dosage").value = button.dataset.medicationDosage || "";
+    document.getElementById("edit-medication-reason").value = button.dataset.medicationReason || "";
+    document.getElementById("edit-medication-intolerance").checked = button.dataset.medicationIntolerance === "1";
+    syncMedicationFields(editCategory, editMedicationFields);
     editForm.action = `/events/${button.dataset.id}/edit`;
     deleteBtn.dataset.eventId = button.dataset.id;
+    button.closest("dialog")?.close();
     editModal.showModal();
   });
 });
@@ -75,21 +109,5 @@ document.querySelectorAll("[data-edit-allergy]").forEach((button) => {
     document.getElementById("edit-allergy-notes").value = button.dataset.notes;
     editAllergyForm.action = `/allergies/${button.dataset.id}/edit`;
     openModal("edit-allergy-modal");
-  });
-});
-
-const editMedicationForm = document.getElementById("edit-medication-form");
-document.querySelectorAll("[data-edit-medication]").forEach((button) => {
-  button.addEventListener("click", () => {
-    document.getElementById("edit-medication-person-id").value = button.dataset.personId;
-    document.getElementById("edit-medication-name").value = button.dataset.name;
-    document.getElementById("edit-medication-dosage").value = button.dataset.dosage;
-    document.getElementById("edit-medication-reason").value = button.dataset.reason;
-    document.getElementById("edit-medication-start-date").value = button.dataset.startDate;
-    document.getElementById("edit-medication-end-date").value = button.dataset.endDate;
-    document.getElementById("edit-medication-intolerance").checked = button.dataset.intolerance === "1";
-    document.getElementById("edit-medication-notes").value = button.dataset.notes;
-    editMedicationForm.action = `/medications/${button.dataset.id}/edit`;
-    openModal("edit-medication-modal");
   });
 });

@@ -45,9 +45,9 @@
                 <h3>{% if event.is_important %}<span class="important-badge" title="Wichtiger Eintrag">!</span>{% endif %} {{ event.title }}</h3>
                 <div class="event-meta">{{ event.person_name }} · {{ category_icons.get(event.category, '') }} {{ event.category }}</div>
               </div>
-              <button class="event-edit-btn" type="button" title="Eintrag bearbeiten" aria-label="Eintrag bearbeiten" data-edit-event data-id="{{ event.id }}" data-person-id="{{ event.person_id }}" data-category="{{ event.category|e }}" data-title="{{ event.title|e }}" data-start-date="{{ event.start_date }}" data-end-date="{{ event.end_date or '' }}" data-notes="{{ event.notes|e }}" data-document-url="{{ event.document_url|e }}" data-is-important="{{ event.is_important }}"><span aria-hidden="true">✎</span></button>
+              <button class="event-edit-btn" type="button" title="Eintrag bearbeiten" aria-label="Eintrag bearbeiten" data-edit-event data-id="{{ event.id }}" data-person-id="{{ event.person_id }}" data-category="{{ event.category|e }}" data-title="{{ event.title|e }}" data-start-date="{{ event.start_date }}" data-end-date="{{ event.end_date or '' }}" data-notes="{{ event.notes|e }}" data-document-url="{{ event.document_url|e }}" data-is-important="{{ event.is_important }}" data-medication-dosage="{{ event.medication_dosage|e }}" data-medication-reason="{{ event.medication_reason|e }}" data-medication-intolerance="{{ event.medication_intolerance }}"><span aria-hidden="true">✎</span></button>
             </div>
-            {% if event.notes %}<p class="event-notes">{{ event.notes }}</p>{% endif %}
+            {% if event.category == 'Medikament' and (event.medication_dosage or event.medication_reason or event.medication_intolerance) %}<div class="medication-event-details">{% if event.medication_dosage %}<span><strong>Dosierung:</strong> {{ event.medication_dosage }}</span>{% endif %}{% if event.medication_reason %}<span><strong>Grund:</strong> {{ event.medication_reason }}</span>{% endif %}{% if event.medication_intolerance %}<span class="warning">Unverträglichkeit</span>{% endif %}</div>{% endif %}{% if event.notes %}<p class="event-notes">{{ event.notes }}</p>{% endif %}
             <div class="event-footer"><span class="badge">{{ category_icons.get(event.category, '') }} {{ event.category }}</span>{% if event.document_url %}<a class="doc-link" href="{{ event.document_url }}" target="_blank" rel="noreferrer">Dokument öffnen</a>{% endif %}</div>
           </div>
         </article>
@@ -82,15 +82,15 @@
     </section>
 
     <section class="panel">
-      <div class="panel-head"><h2>💊 Medikamente</h2><button class="add-action" data-open-modal="medication-modal"><span class="add-action-icon" aria-hidden="true">+</span><span>Hinzufügen</span></button></div>
+      <div class="panel-head"><h2>💊 Medikamente</h2><button class="add-action" type="button" data-new-medication><span class="add-action-icon" aria-hidden="true">+</span><span>Eintragen</span></button></div>
       <div class="person-groups">
         {% for group in medication_groups %}
           <div class="person-group">
             <div class="person-group-head"><div class="person-avatar sidebar-avatar">{% if group.profile_image %}<img src="{{ group.profile_image }}" alt="Profilbild von {{ group.person_name }}">{% else %}{{ group.person_name[:1]|upper }}{% endif %}</div><h3>{{ group.person_name }}</h3>{% if group.gender == 'male' %}<span class="sidebar-gender" title="männlich">♂</span>{% elif group.gender == 'female' %}<span class="sidebar-gender" title="weiblich">♀</span>{% endif %}</div>
             {% for med in group["items"] %}
               <div class="stack-item">
-                <div class="stack-copy"><strong>{{ med.name }}</strong>{% if med.dosage %}<span>{{ med.dosage }}</span>{% endif %}{% if med.reason %}<small>{{ med.reason }}</small>{% endif %}{% if med.end_date %}<small>bis {{ med.end_date }}</small>{% endif %}{% if med.notes %}<small class="stack-note">{{ med.notes }}</small>{% endif %}{% if med.intolerance %}<span class="warning">Unverträglichkeit</span>{% endif %}</div>
-                <div class="stack-actions"><button type="button" class="text-edit" data-edit-medication data-id="{{ med.id }}" data-person-id="{{ med.person_id }}" data-name="{{ med.name|e }}" data-dosage="{{ med.dosage|e }}" data-reason="{{ med.reason|e }}" data-start-date="{{ med.start_date or '' }}" data-end-date="{{ med.end_date or '' }}" data-intolerance="{{ med.intolerance }}" data-notes="{{ med.notes|e }}">Bearbeiten</button><form method="post" action="{{ url_for('delete_medication', medication_id=med.id) }}" data-confirm="Medikament wirklich löschen?"><button class="text-danger" type="submit">Löschen</button></form></div>
+                <div class="stack-copy"><strong>{{ med.name }}</strong>{% if med.dosage %}<span>{{ med.dosage }}</span>{% endif %}{% if med.reason %}<small>Grund: {{ med.reason }}</small>{% endif %}<small class="med-period">seit {{ med.start_date }}{% if med.end_date %} · bis {{ med.end_date }}{% endif %}</small>{% if med.notes %}<small class="stack-note">{{ med.notes }}</small>{% endif %}{% if med.intolerance %}<span class="warning">Unverträglichkeit</span>{% endif %}</div>
+                <div class="stack-actions"><button type="button" class="text-edit" data-edit-event data-id="{{ med.id }}" data-person-id="{{ med.person_id }}" data-category="Medikament" data-title="{{ med.name|e }}" data-start-date="{{ med.start_date }}" data-end-date="{{ med.end_date or '' }}" data-notes="{{ med.notes|e }}" data-document-url="{{ med.document_url|e }}" data-is-important="{{ med.is_important }}" data-medication-dosage="{{ med.dosage|e }}" data-medication-reason="{{ med.reason|e }}" data-medication-intolerance="{{ med.intolerance }}">Bearbeiten</button><form method="post" action="{{ url_for('delete_event', event_id=med.id) }}" data-confirm="Medikament und Timeline-Eintrag wirklich löschen?"><button class="text-danger" type="submit">Löschen</button></form></div>
               </div>
             {% endfor %}
           </div>

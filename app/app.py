@@ -14,8 +14,8 @@ from flask import Flask, Response, flash, redirect, render_template, request, ur
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DB_PATH = DATA_DIR / "stinkis.db"
-APP_VERSION = "0.2.2"
-SCHEMA_VERSION = 2
+APP_VERSION = "0.3.0"
+SCHEMA_VERSION = 3
 MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024
 
 app = Flask(__name__)
@@ -98,6 +98,51 @@ def init_db() -> None:
         _add_column(db, "people", "gender TEXT DEFAULT ''")
         _add_column(db, "people", "profile_image TEXT DEFAULT ''")
         _add_column(db, "events", "is_important INTEGER NOT NULL DEFAULT 0")
+        _add_column(db, "events", "medication_dosage TEXT DEFAULT ''")
+        _add_column(db, "events", "medication_reason TEXT DEFAULT ''")
+        _add_column(db, "events", "medication_intolerance INTEGER NOT NULL DEFAULT 0")
+        _add_column(db, "events", "legacy_medication_id INTEGER")
+
+        # v0.3 vereinheitlicht Medikamente: Die Timeline ist die einzige Datenquelle.
+        # Bereits vorhandene Datensätze aus der alten separaten Medikamenten-Tabelle
+        # werden einmalig in Timeline-Einträge überführt.
+        legacy_meds = db.execute("SELECT * FROM medications ORDER BY id").fetchall()
+        for med in legacy_meds:
+            already_migrated = db.execute(
+                "SELECT id FROM events WHERE legacy_medication_id = ?", (med["id"],)
+            ).fetchone()
+            if already_migrated:
+                continue
+            start_date = med["start_date"] or (med["created_at"] or "")[:10] or date.today().isoformat()
+            existing = db.execute(
+                """
+                SELECT id FROM events
+                WHERE person_id=? AND category='Medikament' AND title=?
+                  AND start_date=? AND COALESCE(end_date,'')=COALESCE(?,'')
+                ORDER BY id LIMIT 1
+                """,
+                (med["person_id"], med["name"], start_date, med["end_date"]),
+            ).fetchone()
+            if existing:
+                db.execute(
+                    """UPDATE events SET medication_dosage=?, medication_reason=?,
+                       medication_intolerance=?, legacy_medication_id=? WHERE id=?""",
+                    (med["dosage"], med["reason"], med["intolerance"], med["id"], existing["id"]),
+                )
+            else:
+                db.execute(
+                    """
+                    INSERT INTO events (
+                        person_id, category, title, start_date, end_date, notes,
+                        document_url, is_important, medication_dosage, medication_reason,
+                        medication_intolerance, legacy_medication_id
+                    ) VALUES (?, 'Medikament', ?, ?, ?, ?, '', 0, ?, ?, ?, ?)
+                    """,
+                    (med["person_id"], med["name"], start_date, med["end_date"], med["notes"],
+                     med["dosage"], med["reason"], med["intolerance"], med["id"]),
+                )
+        if legacy_meds:
+            db.execute("DELETE FROM medications")
 
 
 @app.context_processor
@@ -232,22 +277,28 @@ def index():
         ).fetchall()
 
         med_params: list[Any] = []
-        med_where = ""
+        med_person_where = ""
         if person_id:
-            med_where = " WHERE m.person_id = ?"
+            med_person_where = " AND e.person_id = ?"
             med_params.append(person_id)
         medications = db.execute(
             f"""
-            SELECT m.*, p.name AS person_name, p.profile_image, p.gender
-            FROM medications m JOIN people p ON p.id = m.person_id
-            {med_where}
-            ORDER BY p.name, m.name
+            SELECT e.id, e.person_id, e.title AS name, e.medication_dosage AS dosage,
+                   e.medication_reason AS reason, e.start_date, e.end_date,
+                   e.medication_intolerance AS intolerance, e.notes, e.document_url,
+                   e.is_important, p.name AS person_name, p.profile_image, p.gender
+            FROM events e JOIN people p ON p.id = e.person_id
+            WHERE e.category = 'Medikament' {med_person_where}
+            ORDER BY p.name, e.start_date DESC, e.title
             """,
             med_params,
         ).fetchall()
 
     today_iso = date.today().isoformat()
-    active_medications = [m for m in medications if not m["end_date"] or m["end_date"] >= today_iso]
+    active_medications = [
+        m for m in medications
+        if m["start_date"] <= today_iso and (not m["end_date"] or m["end_date"] >= today_iso)
+    ]
     ended_medications = [m for m in medications if m["end_date"] and m["end_date"] < today_iso]
     page_start = offset + 1 if total_events else 0
     page_end = min(offset + len(events), total_events)
@@ -353,6 +404,11 @@ def delete_person(person_id: int):
     return redirect(url_for("index"))
 
 
+
+def _valid_date_range(start_date: str, end_date: str | None) -> bool:
+    return not end_date or end_date >= start_date
+
+
 @app.post("/events")
 def create_event():
     form = request.form
@@ -360,19 +416,28 @@ def create_event():
     if any(not form.get(key, "").strip() for key in required):
         flash("Person, Kategorie, Titel und Beginn sind Pflichtfelder.", "error")
         return redirect(url_for("index"))
+    start_date = form["start_date"].strip()
+    end_date = form.get("end_date", "").strip() or None
+    if not _valid_date_range(start_date, end_date):
+        flash("Das Enddatum darf nicht vor dem Beginn liegen.", "error")
+        return redirect(url_for("index"))
     with get_db() as db:
         db.execute(
             """
             INSERT INTO events (
                 person_id, category, title, start_date, end_date, notes,
-                document_url, is_important
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                document_url, is_important, medication_dosage, medication_reason,
+                medication_intolerance
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 form["person_id"], form["category"].strip(), form["title"].strip(),
-                form["start_date"].strip(), form.get("end_date", "").strip() or None,
+                start_date, end_date,
                 form.get("notes", "").strip(), form.get("document_url", "").strip(),
                 1 if form.get("is_important") == "on" else 0,
+                form.get("medication_dosage", "").strip() if form["category"].strip() == "Medikament" else "",
+                form.get("medication_reason", "").strip() if form["category"].strip() == "Medikament" else "",
+                1 if form["category"].strip() == "Medikament" and form.get("medication_intolerance") == "on" else 0,
             ),
         )
     flash("Eintrag wurde gespeichert.", "success")
@@ -382,19 +447,29 @@ def create_event():
 @app.post("/events/<int:event_id>/edit")
 def edit_event(event_id: int):
     form = request.form
+    start_date = form.get("start_date", "").strip()
+    end_date = form.get("end_date", "").strip() or None
+    if not start_date or not _valid_date_range(start_date, end_date):
+        flash("Bitte einen gültigen Zeitraum eingeben; das Ende darf nicht vor dem Beginn liegen.", "error")
+        return redirect(url_for("index"))
     with get_db() as db:
         db.execute(
             """
             UPDATE events
             SET person_id=?, category=?, title=?, start_date=?, end_date=?, notes=?,
-                document_url=?, is_important=?, updated_at=CURRENT_TIMESTAMP
+                document_url=?, is_important=?, medication_dosage=?, medication_reason=?,
+                medication_intolerance=?, updated_at=CURRENT_TIMESTAMP
             WHERE id=?
             """,
             (
                 form["person_id"], form["category"].strip(), form["title"].strip(),
-                form["start_date"].strip(), form.get("end_date", "").strip() or None,
+                start_date, end_date,
                 form.get("notes", "").strip(), form.get("document_url", "").strip(),
-                1 if form.get("is_important") == "on" else 0, event_id,
+                1 if form.get("is_important") == "on" else 0,
+                form.get("medication_dosage", "").strip() if form["category"].strip() == "Medikament" else "",
+                form.get("medication_reason", "").strip() if form["category"].strip() == "Medikament" else "",
+                1 if form["category"].strip() == "Medikament" and form.get("medication_intolerance") == "on" else 0,
+                event_id,
             ),
         )
     flash("Eintrag wurde aktualisiert.", "success")
@@ -447,61 +522,6 @@ def delete_allergy(allergy_id: int):
     return redirect(url_for("index"))
 
 
-@app.post("/medications")
-def create_medication():
-    form = request.form
-    if not form.get("person_id") or not form.get("name", "").strip():
-        flash("Person und Medikament sind Pflichtfelder.", "error")
-        return redirect(url_for("index"))
-    with get_db() as db:
-        db.execute(
-            """
-            INSERT INTO medications (person_id, name, dosage, reason, start_date, end_date, intolerance, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                form["person_id"], form["name"].strip(), form.get("dosage", "").strip(),
-                form.get("reason", "").strip(), form.get("start_date", "").strip() or None,
-                form.get("end_date", "").strip() or None,
-                1 if form.get("intolerance") == "on" else 0, form.get("notes", "").strip(),
-            ),
-        )
-    flash("Medikament wurde gespeichert.", "success")
-    return redirect(url_for("index"))
-
-
-@app.post("/medications/<int:medication_id>/edit")
-def edit_medication(medication_id: int):
-    form = request.form
-    if not form.get("person_id") or not form.get("name", "").strip():
-        flash("Person und Medikament sind Pflichtfelder.", "error")
-        return redirect(url_for("index"))
-    with get_db() as db:
-        db.execute(
-            """
-            UPDATE medications
-            SET person_id=?, name=?, dosage=?, reason=?, start_date=?, end_date=?, intolerance=?, notes=?
-            WHERE id=?
-            """,
-            (
-                form["person_id"], form["name"].strip(), form.get("dosage", "").strip(),
-                form.get("reason", "").strip(), form.get("start_date", "").strip() or None,
-                form.get("end_date", "").strip() or None, 1 if form.get("intolerance") == "on" else 0,
-                form.get("notes", "").strip(), medication_id,
-            ),
-        )
-    flash("Medikament wurde aktualisiert.", "success")
-    return redirect(url_for("index"))
-
-
-@app.post("/medications/<int:medication_id>/delete")
-def delete_medication(medication_id: int):
-    with get_db() as db:
-        db.execute("DELETE FROM medications WHERE id = ?", (medication_id,))
-    flash("Medikament wurde gelöscht.", "success")
-    return redirect(url_for("index"))
-
-
 @app.get("/export")
 def export_data():
     with get_db() as db:
@@ -512,7 +532,18 @@ def export_data():
             "people": [dict(row) for row in db.execute("SELECT * FROM people").fetchall()],
             "events": [dict(row) for row in db.execute("SELECT * FROM events").fetchall()],
             "allergies": [dict(row) for row in db.execute("SELECT * FROM allergies").fetchall()],
-            "medications": [dict(row) for row in db.execute("SELECT * FROM medications").fetchall()],
+            # Kompatibilitätsabbild für ältere App-Stände. Ab Schema 3 sind
+            # Medikamenten-Einträge in 'events' die maßgebliche Datenquelle.
+            "medications": [
+                {
+                    "person_id": row["person_id"], "name": row["title"],
+                    "dosage": row["medication_dosage"], "reason": row["medication_reason"],
+                    "start_date": row["start_date"], "end_date": row["end_date"],
+                    "intolerance": row["medication_intolerance"], "notes": row["notes"],
+                    "created_at": row["created_at"],
+                }
+                for row in db.execute("SELECT * FROM events WHERE category='Medikament'").fetchall()
+            ],
         }
     body = json.dumps(payload, ensure_ascii=False, indent=2)
     return Response(body, mimetype="application/json", headers={"Content-Disposition": "attachment; filename=stinkis-krankenakten-export.json"})
@@ -556,18 +587,47 @@ def import_data():
                 cols = list(item)
                 db.execute(f"INSERT INTO people ({','.join(cols)}) VALUES ({','.join('?' for _ in cols)})", [item[c] for c in cols])
             for row in events:
-                item = _clean_record(row, ["id", "person_id", "category", "title", "start_date", "end_date", "notes", "document_url", "is_important", "created_at", "updated_at"])
+                item = _clean_record(row, ["id", "person_id", "category", "title", "start_date", "end_date", "notes", "document_url", "is_important", "medication_dosage", "medication_reason", "medication_intolerance", "legacy_medication_id", "created_at", "updated_at"])
                 item.setdefault("is_important", 0)
                 cols = list(item)
                 db.execute(f"INSERT INTO events ({','.join(cols)}) VALUES ({','.join('?' for _ in cols)})", [item[c] for c in cols])
-            for table, rows, allowed in (
-                ("allergies", allergies, ["id", "person_id", "name", "reaction", "notes", "created_at"]),
-                ("medications", medications, ["id", "person_id", "name", "dosage", "reason", "start_date", "end_date", "intolerance", "notes", "created_at"]),
-            ):
-                for row in rows:
-                    item = _clean_record(row, allowed)
-                    cols = list(item)
-                    db.execute(f"INSERT INTO {table} ({','.join(cols)}) VALUES ({','.join('?' for _ in cols)})", [item[c] for c in cols])
+            for row in allergies:
+                item = _clean_record(row, ["id", "person_id", "name", "reaction", "notes", "created_at"])
+                cols = list(item)
+                db.execute(f"INSERT INTO allergies ({','.join(cols)}) VALUES ({','.join('?' for _ in cols)})", [item[c] for c in cols])
+
+            # Bis Schema 2 lagen Medikamente separat. Beim Import werden sie
+            # direkt in das neue Timeline-Modell übernommen. Schema 3 enthält
+            # sie bereits vollständig in 'events'.
+            if schema_version < 3:
+                for row in medications:
+                    item = _clean_record(row, ["id", "person_id", "name", "dosage", "reason", "start_date", "end_date", "intolerance", "notes", "created_at"])
+                    start_date = item.get("start_date") or str(item.get("created_at") or "")[:10] or date.today().isoformat()
+                    existing = db.execute(
+                        """SELECT id FROM events WHERE person_id=? AND category='Medikament' AND title=?
+                           AND start_date=? AND COALESCE(end_date,'')=COALESCE(?,'')
+                           ORDER BY id LIMIT 1""",
+                        (item.get("person_id"), item.get("name") or "Medikament", start_date, item.get("end_date")),
+                    ).fetchone()
+                    if existing:
+                        db.execute(
+                            """UPDATE events SET medication_dosage=?, medication_reason=?,
+                               medication_intolerance=?, legacy_medication_id=? WHERE id=?""",
+                            (item.get("dosage") or "", item.get("reason") or "", item.get("intolerance") or 0,
+                             item.get("id"), existing["id"]),
+                        )
+                    else:
+                        db.execute(
+                            """
+                            INSERT INTO events (person_id, category, title, start_date, end_date, notes,
+                                                document_url, is_important, medication_dosage,
+                                                medication_reason, medication_intolerance, legacy_medication_id)
+                            VALUES (?, 'Medikament', ?, ?, ?, ?, '', 0, ?, ?, ?, ?)
+                            """,
+                            (item.get("person_id"), item.get("name") or "Medikament", start_date,
+                             item.get("end_date"), item.get("notes") or "", item.get("dosage") or "",
+                             item.get("reason") or "", item.get("intolerance") or 0, item.get("id")),
+                        )
         flash(f"Sicherung (Schema {schema_version}) wurde erfolgreich importiert.", "success")
     except (ValueError, TypeError, json.JSONDecodeError, sqlite3.Error) as exc:
         flash(f"Import fehlgeschlagen: {exc}", "error")

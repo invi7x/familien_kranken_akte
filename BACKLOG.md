@@ -4,12 +4,26 @@
 
 - Ärztliche Krankschreibung / Attest mit eigenem Zeitraum und späterer Jahresauswertung
 - Medikamente optional mit Diagnose, Krankheit, OP oder anderem Timeline-Eintrag verknüpfen
-- Dosierungsänderungen und Pausierung einer Medikation
+- Dosierungsänderungen und Pausierung einer Medikation historisch abbilden
 - Profilbilder automatisch verkleinern und optional als Datei statt im JSON sichern
 - Dokumentenanhänge zusätzlich zu Paperless-/NAS-Links
 - Pollenflug-Widget mit externer Datenquelle und persönlicher Allergie-Zuordnung
 - Optionaler Status „verstorben am“ mit Archivierung und Schreibschutz (Priorität 99)
 - Spätere neutrale Umbenennung für eine öffentliche Veröffentlichung
+
+## In v0.3.0 erledigt
+
+- Medikamente besitzen nur noch einen Erfassungsweg: + Neuer Eintrag → Medikament
+- Dynamische Medikamentenfelder in Neu-/Bearbeiten-Dialogen
+- Timeline ist zentrale Datenquelle für Medikamente und rechte Medikamentenbox
+- Aktive Medikamente werden anhand des heutigen Datums automatisch ermittelt
+- Abgelaufene Medikamente bleiben in der Medikationshistorie erhalten
+- Alte separate Medikamentendaten werden automatisch migriert
+- Bearbeiten aus aktueller Medikamentenbox und Historie
+- Medikamenten-Quick-Action öffnet den zentralen Timeline-Dialog
+- Medikamentendetails werden in der Timeline angezeigt
+- Validierung von Beginn/Ende
+- JSON-Schema 3 mit Import alter v0.1/v0.2-Sicherungen
 
 ## In v0.2.2 erledigt
 
