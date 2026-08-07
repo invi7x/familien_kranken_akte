@@ -111,3 +111,8 @@
 - [x] App-eigener Löschdialog
 - [x] Timeline-Status-Tags Geplant / Laufend / Abgeschlossen
 - [x] Rechte Außenkante über ein strikt begrenztes gemeinsames Raster korrigiert
+
+## Erledigt in v0.6.3
+- Filterzeile neu ausgerichtet: Aktionen links, Zeitraum und Status rechts.
+- Statusfeld kompakter dimensioniert; Datumsfelder bleiben innerhalb des gemeinsamen Rasters.
+- Personengruppen in Allergie- und Medikamentenboxen als dezente Karten hervorgehoben.

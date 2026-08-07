@@ -289,3 +289,46 @@
   .future-toggle{margin-left:2.15rem;text-align:left}
 }
 @media(max-width:430px){.date-range-filter{grid-template-columns:1fr}.profile-editor{grid-template-columns:1fr}.profile-preview{margin:auto}}
+
+/* v0.6.3 – Bugfixrunde: klare Filterlogik und besser lesbare Personenblöcke */
+/* Aktionen stehen links; zeitliche/statusbezogene Metadaten bilden rechts einen kompakten Block. */
+.filter-secondary-row{
+  grid-template-columns:minmax(320px,.9fr) minmax(320px,1fr) 170px;
+  gap:.75rem;
+  align-items:end;
+}
+.filter-actions{order:0;min-width:0}
+.date-range-filter{order:0;min-width:0;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.status-filter{order:0;min-width:0;width:170px;justify-self:end}
+.status-filter select{min-width:0;width:100%}
+.date-range-filter input{min-width:0}
+
+/* Allergien/Medikamente: jede Person als ruhiger, eigener Informationsblock. */
+.sidebar .person-groups{gap:.7rem}
+.sidebar .person-group{
+  border:1px solid #e2e8f0;
+  border-radius:.85rem;
+  background:#f8fafc;
+  padding:.7rem .75rem .75rem;
+}
+.sidebar .person-group-head{margin-bottom:.35rem}
+.sidebar .compact-list{gap:.35rem}
+.sidebar .compact-list-item{padding:.12rem 0}
+
+@media(max-width:1100px){
+  .filter-secondary-row{grid-template-columns:minmax(260px,.8fr) minmax(300px,1fr) 165px}
+  .status-filter{width:165px}
+}
+@media(max-width:900px){
+  .filter-secondary-row{grid-template-columns:1fr 1fr}
+  .filter-actions{grid-column:1/-1}
+  .date-range-filter{grid-column:1}
+  .status-filter{grid-column:2;width:100%;justify-self:stretch}
+}
+@media(max-width:620px){
+  .filter-secondary-row{grid-template-columns:1fr}
+  .filter-actions,.date-range-filter,.status-filter{grid-column:auto;width:100%}
+  .filter-actions{order:1}
+  .date-range-filter{order:2}
+  .status-filter{order:3}
+}

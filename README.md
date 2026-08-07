@@ -1,8 +1,8 @@
-# Stinkis’ Krankenakten – Version 0.6.2
+# Stinkis’ Krankenakten – Version 0.6.3
 
 Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 
-## Neu in Version 0.6.2
+## Neu in Version 0.6.3
 
 - Neuer Timeline-Filter **Status** mit **Geplant / Laufend / Abgeschlossen**.
 - Die beiden Zeitraumfelder sind kompakter; der Statusfilter sitzt rechts daneben.
@@ -20,20 +20,20 @@ Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 Vorher in der laufenden Version über **Sicherung** einen aktuellen JSON-Export erstellen.
 
 ```bash
-cd /docker/stinkis-krankenakten-v0.6.2
+cd /docker/stinkis-krankenakten-v0.6.3
 sudo docker compose -f compose-test.yaml up -d --build
 ```
 
 Aufruf:
 
 ```text
-http://SERVER-IP:8495
+http://SERVER-IP:8496
 ```
 
 Test-Volume:
 
 ```text
-stinkis_v062_test_data
+stinkis_v063_test_data
 ```
 
 Damit bleibt die bisherige Installation unangetastet.
@@ -58,3 +58,8 @@ Die Daten liegen standardmäßig im Docker-Volume `stinkis_krankenakten_data`. Z
 ## Sicherheit
 
 Die App besitzt noch keine Anmeldung. Sie sollte nur im Heimnetz oder über einen abgesicherten VPN-Zugang erreichbar sein.
+
+### v0.6.3
+- Filter-Aktionen wieder konsequent links, Zeitraum und Status rechts gruppiert.
+- Statusauswahl kompakter; Datumsfelder bleiben im Inhaltsraster.
+- Allergie- und Medikamentengruppen je Person dezent eingerahmt/hinterlegt.
