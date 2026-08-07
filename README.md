@@ -20,7 +20,7 @@ Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 Vorher in der laufenden Version über **Sicherung** einen aktuellen JSON-Export erstellen.
 
 ```bash
-cd /docker/stinkis-krankenakten-v0.6.3
+cd /docker/stinkis-krankenakten-v0.6.4
 sudo docker compose -f compose-test.yaml up -d --build
 ```
 
@@ -59,7 +59,7 @@ Die Daten liegen standardmäßig im Docker-Volume `stinkis_krankenakten_data`. Z
 
 Die App besitzt noch keine Anmeldung. Sie sollte nur im Heimnetz oder über einen abgesicherten VPN-Zugang erreichbar sein.
 
-### v0.6.3
+### v0.6.4
 - Filter-Aktionen wieder konsequent links, Zeitraum und Status rechts gruppiert.
 - Statusauswahl kompakter; Datumsfelder bleiben im Inhaltsraster.
 - Allergie- und Medikamentengruppen je Person dezent eingerahmt/hinterlegt.
