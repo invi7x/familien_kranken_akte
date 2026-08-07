@@ -101,13 +101,29 @@ document.querySelectorAll("[data-edit-person]").forEach((button) => {
 });
 
 const editAllergyForm = document.getElementById("edit-allergy-form");
+const editAllergyResolved = document.getElementById("edit-allergy-resolved");
+const allergyResolvedFields = document.getElementById("allergy-resolved-fields");
+const editAllergyEndDate = document.getElementById("edit-allergy-end-date");
+
+function syncAllergyResolvedFields() {
+  if (!allergyResolvedFields || !editAllergyResolved) return;
+  allergyResolvedFields.hidden = !editAllergyResolved.checked;
+}
+editAllergyResolved?.addEventListener("change", syncAllergyResolvedFields);
+
 document.querySelectorAll("[data-edit-allergy]").forEach((button) => {
   button.addEventListener("click", () => {
     document.getElementById("edit-allergy-person-id").value = button.dataset.personId;
     document.getElementById("edit-allergy-name").value = button.dataset.name;
     document.getElementById("edit-allergy-reaction").value = button.dataset.reaction;
     document.getElementById("edit-allergy-notes").value = button.dataset.notes;
+    document.getElementById("edit-allergy-start-date").value = button.dataset.startDate || "";
+    editAllergyEndDate.value = button.dataset.endDate || "";
+    document.getElementById("edit-allergy-resolved-note").value = button.dataset.resolvedNote || "";
+    editAllergyResolved.checked = Boolean(button.dataset.endDate);
+    syncAllergyResolvedFields();
     editAllergyForm.action = `/allergies/${button.dataset.id}/edit`;
+    button.closest("dialog")?.close();
     openModal("edit-allergy-modal");
   });
 });

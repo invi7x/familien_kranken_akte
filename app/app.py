@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+import csv
+import io
 import json
 import os
 import sqlite3
@@ -14,8 +16,8 @@ from flask import Flask, Response, flash, redirect, render_template, request, ur
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DB_PATH = DATA_DIR / "stinkis.db"
-APP_VERSION = "0.3.1"
-SCHEMA_VERSION = 3
+APP_VERSION = "0.4.0"
+SCHEMA_VERSION = 4
 MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024
 
 app = Flask(__name__)
@@ -76,6 +78,9 @@ def init_db() -> None:
                 name TEXT NOT NULL,
                 reaction TEXT DEFAULT '',
                 notes TEXT DEFAULT '',
+                start_date TEXT,
+                end_date TEXT,
+                resolved_note TEXT DEFAULT '',
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
             );
@@ -102,6 +107,9 @@ def init_db() -> None:
         _add_column(db, "events", "medication_reason TEXT DEFAULT ''")
         _add_column(db, "events", "medication_intolerance INTEGER NOT NULL DEFAULT 0")
         _add_column(db, "events", "legacy_medication_id INTEGER")
+        _add_column(db, "allergies", "start_date TEXT")
+        _add_column(db, "allergies", "end_date TEXT")
+        _add_column(db, "allergies", "resolved_note TEXT DEFAULT ''")
 
         # v0.3 vereinheitlicht Medikamente: Die Timeline ist die einzige Datenquelle.
         # Bereits vorhandene Datensätze aus der alten separaten Medikamenten-Tabelle
@@ -193,6 +201,8 @@ def index():
     person_id = request.args.get("person_id", "").strip()
     category = request.args.get("category", "").strip()
     important_only = request.args.get("important") == "1"
+    date_from = request.args.get("date_from", "").strip()
+    date_to = request.args.get("date_to", "").strip()
 
     try:
         per_page = int(request.args.get("per_page", "20"))
@@ -217,6 +227,14 @@ def index():
         params.append(category)
     if important_only:
         base_where.append("e.is_important = 1")
+    # Zeitraumfilter arbeitet mit Überschneidungen: Ein mehrtägiger Eintrag
+    # wird gefunden, sobald irgendein Teil seines Zeitraums im Filter liegt.
+    if date_from:
+        base_where.append("COALESCE(e.end_date, e.start_date) >= ?")
+        params.append(date_from)
+    if date_to:
+        base_where.append("e.start_date <= ?")
+        params.append(date_to)
     if q:
         like = f"%{q}%"
         base_where.append(
@@ -255,7 +273,7 @@ def index():
         # Historie wird paginiert und absteigend dargestellt.
         events = db.execute(
             f"""
-            SELECT e.*, p.name AS person_name
+            SELECT e.*, p.name AS person_name, p.profile_image AS person_profile_image
             FROM events e JOIN people p ON p.id = e.person_id
             WHERE {history_where_sql}
             ORDER BY e.start_date DESC, e.id DESC
@@ -267,7 +285,7 @@ def index():
         # Kommende Einträge bleiben immer sichtbar und werden nicht paginiert.
         future_events = db.execute(
             f"""
-            SELECT e.*, p.name AS person_name
+            SELECT e.*, p.name AS person_name, p.profile_image AS person_profile_image
             FROM events e JOIN people p ON p.id = e.person_id
             WHERE {future_where_sql}
             ORDER BY e.start_date ASC, e.id ASC
@@ -310,6 +328,9 @@ def index():
             med_params,
         ).fetchall()
 
+    active_allergies = [a for a in allergies if not a["end_date"] or a["end_date"] > today_iso]
+    ended_allergies = [a for a in allergies if a["end_date"] and a["end_date"] <= today_iso]
+
     active_medications = [
         m for m in medications
         if m["start_date"] <= today_iso and (not m["end_date"] or m["end_date"] >= today_iso)
@@ -323,13 +344,16 @@ def index():
         people=people,
         events=events,
         future_events=future_events,
-        allergy_groups=_group_by_person(allergies),
+        allergy_groups=_group_by_person(active_allergies),
+        allergy_history_groups=_group_by_person(ended_allergies),
         medication_groups=_group_by_person(active_medications),
         medication_history_groups=_group_by_person(ended_medications),
         q=q,
         selected_person_id=person_id,
         selected_category=category,
         important_only=important_only,
+        date_from=date_from,
+        date_to=date_to,
         page=page,
         per_page=per_page,
         total_events=total_events,
@@ -509,8 +533,9 @@ def create_allergy():
         return redirect(url_for("index"))
     with get_db() as db:
         db.execute(
-            "INSERT INTO allergies (person_id, name, reaction, notes) VALUES (?, ?, ?, ?)",
-            (form["person_id"], form["name"].strip(), form.get("reaction", "").strip(), form.get("notes", "").strip()),
+            "INSERT INTO allergies (person_id, name, reaction, notes, start_date) VALUES (?, ?, ?, ?, ?)",
+            (form["person_id"], form["name"].strip(), form.get("reaction", "").strip(),
+             form.get("notes", "").strip(), form.get("start_date", "").strip() or None),
         )
     flash("Allergie oder Unverträglichkeit wurde gespeichert.", "success")
     return redirect(url_for("index"))
@@ -522,10 +547,23 @@ def edit_allergy(allergy_id: int):
     if not form.get("person_id") or not form.get("name", "").strip():
         flash("Person und Allergie/Unverträglichkeit sind Pflichtfelder.", "error")
         return redirect(url_for("index"))
+    resolved = form.get("resolved") == "on"
+    start_date = form.get("start_date", "").strip() or None
+    end_date = form.get("end_date", "").strip() or None
+    if resolved and not end_date:
+        end_date = date.today().isoformat()
+    if not resolved:
+        end_date = None
+    if start_date and end_date and end_date < start_date:
+        flash("Das Enddatum darf nicht vor dem Beginn liegen.", "error")
+        return redirect(url_for("index"))
     with get_db() as db:
         db.execute(
-            "UPDATE allergies SET person_id=?, name=?, reaction=?, notes=? WHERE id=?",
-            (form["person_id"], form["name"].strip(), form.get("reaction", "").strip(), form.get("notes", "").strip(), allergy_id),
+            """UPDATE allergies SET person_id=?, name=?, reaction=?, notes=?,
+               start_date=?, end_date=?, resolved_note=? WHERE id=?""",
+            (form["person_id"], form["name"].strip(), form.get("reaction", "").strip(),
+             form.get("notes", "").strip(), start_date, end_date,
+             form.get("resolved_note", "").strip() if resolved else "", allergy_id),
         )
     flash("Allergie oder Unverträglichkeit wurde aktualisiert.", "success")
     return redirect(url_for("index"))
@@ -609,7 +647,7 @@ def import_data():
                 cols = list(item)
                 db.execute(f"INSERT INTO events ({','.join(cols)}) VALUES ({','.join('?' for _ in cols)})", [item[c] for c in cols])
             for row in allergies:
-                item = _clean_record(row, ["id", "person_id", "name", "reaction", "notes", "created_at"])
+                item = _clean_record(row, ["id", "person_id", "name", "reaction", "notes", "start_date", "end_date", "resolved_note", "created_at"])
                 cols = list(item)
                 db.execute(f"INSERT INTO allergies ({','.join(cols)}) VALUES ({','.join('?' for _ in cols)})", [item[c] for c in cols])
 
@@ -649,6 +687,85 @@ def import_data():
     except (ValueError, TypeError, json.JSONDecodeError, sqlite3.Error) as exc:
         flash(f"Import fehlgeschlagen: {exc}", "error")
     return redirect(url_for("index"))
+
+
+@app.get("/reports/csv")
+def report_csv():
+    person_id = request.args.get("person_id", "").strip()
+    date_from = request.args.get("date_from", "").strip()
+    date_to = request.args.get("date_to", "").strip()
+    category = request.args.get("category", "").strip()
+    important_only = request.args.get("important") == "1"
+    if not person_id:
+        flash("Für einen Bericht bitte eine Person auswählen.", "error")
+        return redirect(url_for("index"))
+
+    where = ["e.person_id = ?"]
+    params: list[Any] = [person_id]
+    if category:
+        where.append("e.category = ?")
+        params.append(category)
+    if important_only:
+        where.append("e.is_important = 1")
+    if date_from:
+        where.append("COALESCE(e.end_date, e.start_date) >= ?")
+        params.append(date_from)
+    if date_to:
+        where.append("e.start_date <= ?")
+        params.append(date_to)
+
+    with get_db() as db:
+        person = db.execute("SELECT * FROM people WHERE id=?", (person_id,)).fetchone()
+        if not person:
+            flash("Person wurde nicht gefunden.", "error")
+            return redirect(url_for("index"))
+        events = db.execute(
+            f"""SELECT e.* FROM events e WHERE {' AND '.join(where)}
+                ORDER BY e.start_date ASC, e.id ASC""", params
+        ).fetchall()
+
+        allergy_where = ["person_id = ?"]
+        allergy_params: list[Any] = [person_id]
+        if date_from:
+            allergy_where.append("COALESCE(end_date, ?) >= ?")
+            allergy_params.extend([date.today().isoformat(), date_from])
+        if date_to:
+            allergy_where.append("COALESCE(start_date, created_at) <= ?")
+            allergy_params.append(date_to)
+        allergies = db.execute(
+            f"SELECT * FROM allergies WHERE {' AND '.join(allergy_where)} ORDER BY COALESCE(start_date, created_at), id",
+            allergy_params,
+        ).fetchall()
+
+    stream = io.StringIO()
+    writer = csv.writer(stream, delimiter=';')
+    writer.writerow(["Datentyp", "Person", "Kategorie", "Titel", "Beginn", "Ende",
+                     "Details", "Notizen", "Wichtig", "Dokument"])
+    for event in events:
+        details = []
+        if event["category"] == "Medikament":
+            if event["medication_dosage"]:
+                details.append(f"Dosierung: {event['medication_dosage']}")
+            if event["medication_reason"]:
+                details.append(f"Grund: {event['medication_reason']}")
+            if event["medication_intolerance"]:
+                details.append("Unverträglichkeit")
+        writer.writerow(["Timeline", person["name"], event["category"], event["title"],
+                         event["start_date"], event["end_date"] or "", " | ".join(details),
+                         event["notes"] or "", "ja" if event["is_important"] else "nein",
+                         event["document_url"] or ""])
+    for allergy in allergies:
+        details = allergy["reaction"] or ""
+        if allergy["resolved_note"]:
+            details = (details + " | " if details else "") + "Abschluss: " + allergy["resolved_note"]
+        writer.writerow(["Allergie", person["name"], "Allergie/Unverträglichkeit", allergy["name"],
+                         allergy["start_date"] or "", allergy["end_date"] or "", details,
+                         allergy["notes"] or "", "", ""])
+
+    filename = f"krankenakte-{person['name'].lower().replace(' ', '-')}.csv"
+    body = '\ufeff' + stream.getvalue()
+    return Response(body, mimetype="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f"attachment; filename={filename}"})
 
 
 @app.get("/health")

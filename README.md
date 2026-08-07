@@ -1,50 +1,59 @@
-# Stinkis’ Krankenakten – Version 0.3.1
+# Stinkis’ Krankenakten – Version 0.4.0
 
 Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 
-## Neu in Version 0.3.1
+## Neu in Version 0.4.0
 
-### Seit v0.3.0: Medikamente nur noch über einen Erfassungsweg
+### Allergien behalten ihre Historie
 
-- Medikamente werden ausschließlich über **+ Neuer Eintrag → Medikament** angelegt.
-- Die Eingabemaske blendet bei der Kategorie **Medikament** automatisch zusätzliche Felder für **Dosierung**, **Grund / Indikation** und **Medikamenten-Unverträglichkeit** ein.
-- Ein Medikament ist damit immer ein Timeline-Eintrag und gleichzeitig die Datenquelle für die rechte Medikamentenbox.
-- Die rechte Box zeigt nur Medikamente, deren Zeitraum am aktuellen Datum läuft.
-- Abgelaufene Medikamente verschwinden automatisch aus der aktuellen Box und bleiben unter **Beendete Medikamente anzeigen** erhalten.
-- Der blaue Button **+ Eintragen** in der Medikamentenbox öffnet denselben zentralen Timeline-Dialog direkt mit vorausgewählter Kategorie Medikament.
-- Aktive und beendete Medikamente können direkt aus der jeweiligen Übersicht bearbeitet werden; die Änderung wirkt gleichzeitig auf Timeline und Medikamentenübersicht.
-- Alte Medikamentendaten aus v0.1/v0.2 werden beim Upgrade bzw. Import automatisch in das neue Timeline-Modell übernommen.
+- Allergien und Unverträglichkeiten können jetzt optional mit **Bekannt seit** versehen werden.
+- Beim Bearbeiten gibt es **Tritt nicht mehr auf / abgeschlossen**.
+- Dazu können ein Abschlussdatum und eine Abschlussnotiz hinterlegt werden.
+- Abgeschlossene Einträge verschwinden aus der aktuellen rechten Übersicht, werden aber **nicht gelöscht**.
+- Über **Abgeschlossene Allergien anzeigen** bleibt die gesamte Historie einsehbar.
+- Historische Allergien können wieder bearbeitet bzw. reaktiviert werden.
 
-### Weitere Verbesserungen
+### Timeline und Suche
 
-- Medikamentendetails werden auch direkt im Timeline-Eintrag kompakt dargestellt.
-- Zukünftig gestartete Medikamente werden noch nicht als aktuell laufend angezeigt.
-- Beginn/Ende werden validiert; ein Enddatum vor dem Beginn wird abgefangen.
-- Auch beendete Medikamente können aus der Historie wieder bearbeitet werden.
-- JSON-Schema auf **Version 3** angehoben; alte Sicherungen bleiben importierbar.
-- Der JSON-Export enthält weiterhin eine Medikamenten-Kompatibilitätsabbildung für ältere App-Stände.
+- Der Avatar der Person wird jetzt auch direkt in jedem Timeline-Eintrag angezeigt.
+- Die Suche besitzt einen optionalen **Zeitraum von / bis**.
+- Mehrtägige Einträge werden gefunden, sobald sich ihr Zeitraum mit dem Suchzeitraum überschneidet.
+- Personen-, Kategorie-, Wichtigkeits- und Zeitraumfilter lassen sich kombinieren.
+
+### Berichte
+
+- Oben gibt es neu **Berichte**.
+- Für eine Person kann eine Excel-kompatible **CSV-Akte** exportiert werden.
+- Person, Zeitraum, Kategorie und „nur wichtige“ können ausgewählt werden.
+- Der CSV-Bericht enthält Timeline-Einträge, Medikationsdetails und die Allergiehistorie.
+- PDF bleibt für eine spätere Version im Backlog.
+
+### Datensicherung
+
+- JSON-Schema ist jetzt **Version 4**.
+- Alte Sicherungen bleiben importierbar.
+- Profilbilder bleiben Bestandteil des JSON-Exports.
+- Neue Allergie-Historienfelder werden ebenfalls exportiert/importiert.
 
 ## Parallel testen
 
 Vorher in der laufenden Version über **Sicherung** einen aktuellen JSON-Export erstellen.
 
-Für den Paralleltest ist `compose-test.yaml` enthalten. Sie verwendet Port **8489** und ein eigenes Volume:
-
 ```bash
-cd /docker/stinkis-krankenakten-v0.3.1
-docker compose -f compose-test.yaml up -d --build
+cd /docker/stinkis-krankenakten-v0.4.0
+sudo docker compose -f compose-test.yaml up -d --build
 ```
 
 Aufruf:
 
 ```text
-http://SERVER-IP:8489
+http://SERVER-IP:8490
 ```
 
 Test-Volume:
 
 ```text
-stinkis_v031_test_data
+stinkis_v040_test_data
 ```
 
 Damit bleibt die bisherige Installation unangetastet.
@@ -53,7 +62,7 @@ Damit bleibt die bisherige Installation unangetastet.
 
 ```bash
 cd /docker/stinkis-familienakte
-docker compose up -d --build
+sudo docker compose up -d --build
 ```
 
 Standardmäßig:
@@ -64,18 +73,8 @@ http://SERVER-IP:8484
 
 ## Backup
 
-Die Daten liegen standardmäßig im Docker-Volume `stinkis_krankenakten_data`. Zusätzlich kann über **Sicherung** ein JSON-Export erzeugt und wieder importiert werden. Profilbilder sind weiterhin als Base64-Daten im JSON enthalten.
+Die Daten liegen standardmäßig im Docker-Volume `stinkis_krankenakten_data`. Zusätzlich kann über **Sicherung** ein JSON-Export erzeugt und wieder importiert werden.
 
 ## Sicherheit
 
 Die App besitzt noch keine Anmeldung. Sie sollte nur im Heimnetz oder über einen abgesicherten VPN-Zugang erreichbar sein.
-
-
-### UI und Timeline in v0.3.1
-
-- Zukünftige Timeline-Einträge stehen separat unter **Kommende Einträge** und werden chronologisch aufsteigend sortiert.
-- Ein **Heute**-Trenner grenzt geplante Einträge vom bisherigen Verlauf ab.
-- Nur die Historie wird paginiert; kommende Einträge bleiben immer sichtbar.
-- Bearbeiten/Löschen in Allergie- und Medikamentenboxen sind platzsparende Icon-Aktionen.
-- **Filtern** und **Zurücksetzen** stehen gemeinsam unter dem Suchfeld.
-- Oberer Inhalts- und Statusbereich nutzt dieselbe Gesamtbreite wie das Dashboard.

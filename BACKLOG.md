@@ -11,7 +11,7 @@
 - Optionaler Status „verstorben am“ mit Archivierung und Schreibschutz (Priorität 99)
 - Spätere neutrale Umbenennung für eine öffentliche Veröffentlichung
 
-## In v0.3.1 erledigt
+## In v0.4.0 erledigt
 
 - Kommende Timeline-Einträge optisch und logisch vom bisherigen Verlauf getrennt
 - Deutlicher Heute-Trenner
@@ -51,3 +51,16 @@
 - Alte Sicherungen werden durch Schema-Migration weiter unterstützt.
 - Einträge werden in Übersichten grundsätzlich nach Person gruppiert.
 - Die Hauptansicht bleibt einfach; selten benötigte Funktionen wandern in Dialoge.
+
+## Erledigt in v0.4.0
+- Allergien abschließen statt historisch löschen
+- Allergiehistorie mit Start-/Enddatum und Abschlussnotiz
+- Avatar direkt in der Timeline
+- Zeitraumfilter mit Überschneidungslogik
+- CSV-Berichte pro Person / Zeitraum / Kategorie
+
+## Als Nächstes / später
+- PDF-Bericht als druckbare Patientenakte
+- Krankmeldung / Attest und Jahresauswertung
+- Pollenflug-Widget
+- Archivierung verstorbener Personen (Prio 99)
