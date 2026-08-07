@@ -1,10 +1,10 @@
-# Stinkis’ Krankenakten – Version 0.3.0
+# Stinkis’ Krankenakten – Version 0.3.1
 
 Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 
-## Neu in Version 0.3.0
+## Neu in Version 0.3.1
 
-### Medikamente: nur noch ein Erfassungsweg
+### Seit v0.3.0: Medikamente nur noch über einen Erfassungsweg
 
 - Medikamente werden ausschließlich über **+ Neuer Eintrag → Medikament** angelegt.
 - Die Eingabemaske blendet bei der Kategorie **Medikament** automatisch zusätzliche Felder für **Dosierung**, **Grund / Indikation** und **Medikamenten-Unverträglichkeit** ein.
@@ -28,23 +28,23 @@ Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 
 Vorher in der laufenden Version über **Sicherung** einen aktuellen JSON-Export erstellen.
 
-Für den Paralleltest ist `compose-test.yaml` enthalten. Sie verwendet Port **8488** und ein eigenes Volume:
+Für den Paralleltest ist `compose-test.yaml` enthalten. Sie verwendet Port **8489** und ein eigenes Volume:
 
 ```bash
-cd /docker/stinkis-krankenakten-v0.3.0
+cd /docker/stinkis-krankenakten-v0.3.1
 docker compose -f compose-test.yaml up -d --build
 ```
 
 Aufruf:
 
 ```text
-http://SERVER-IP:8488
+http://SERVER-IP:8489
 ```
 
 Test-Volume:
 
 ```text
-stinkis_v030_test_data
+stinkis_v031_test_data
 ```
 
 Damit bleibt die bisherige Installation unangetastet.
@@ -69,3 +69,13 @@ Die Daten liegen standardmäßig im Docker-Volume `stinkis_krankenakten_data`. Z
 ## Sicherheit
 
 Die App besitzt noch keine Anmeldung. Sie sollte nur im Heimnetz oder über einen abgesicherten VPN-Zugang erreichbar sein.
+
+
+### UI und Timeline in v0.3.1
+
+- Zukünftige Timeline-Einträge stehen separat unter **Kommende Einträge** und werden chronologisch aufsteigend sortiert.
+- Ein **Heute**-Trenner grenzt geplante Einträge vom bisherigen Verlauf ab.
+- Nur die Historie wird paginiert; kommende Einträge bleiben immer sichtbar.
+- Bearbeiten/Löschen in Allergie- und Medikamentenboxen sind platzsparende Icon-Aktionen.
+- **Filtern** und **Zurücksetzen** stehen gemeinsam unter dem Suchfeld.
+- Oberer Inhalts- und Statusbereich nutzt dieselbe Gesamtbreite wie das Dashboard.

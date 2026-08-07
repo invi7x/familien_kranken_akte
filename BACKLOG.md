@@ -11,6 +11,16 @@
 - Optionaler Status „verstorben am“ mit Archivierung und Schreibschutz (Priorität 99)
 - Spätere neutrale Umbenennung für eine öffentliche Veröffentlichung
 
+## In v0.3.1 erledigt
+
+- Kommende Timeline-Einträge optisch und logisch vom bisherigen Verlauf getrennt
+- Deutlicher Heute-Trenner
+- Zukunft aufsteigend, Historie absteigend sortiert
+- Pagination nur für historische Einträge
+- Kompakte Stift-/Löschen-Icons in Allergie- und Medikamentenboxen
+- Filter- und Zurücksetzen-Button unter dem Suchfeld nebeneinander
+- Einheitlich breiter Dashboard- und Statusbereich
+
 ## In v0.3.0 erledigt
 
 - Medikamente besitzen nur noch einen Erfassungsweg: + Neuer Eintrag → Medikament

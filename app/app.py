@@ -14,7 +14,7 @@ from flask import Flask, Response, flash, redirect, render_template, request, ur
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DB_PATH = DATA_DIR / "stinkis.db"
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.3.1"
 SCHEMA_VERSION = 3
 MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024
 
@@ -206,26 +206,23 @@ def index():
     except ValueError:
         page = 1
 
-    where = ["1 = 1"]
+    today_iso = date.today().isoformat()
+    base_where = ["1 = 1"]
     params: list[Any] = []
     if person_id:
-        where.append("e.person_id = ?")
+        base_where.append("e.person_id = ?")
         params.append(person_id)
     if category:
-        where.append("e.category = ?")
+        base_where.append("e.category = ?")
         params.append(category)
     if important_only:
-        where.append("e.is_important = 1")
+        base_where.append("e.is_important = 1")
     if q:
         like = f"%{q}%"
-        where.append(
+        base_where.append(
             """(
                 e.title LIKE ? OR e.notes LIKE ? OR e.category LIKE ? OR p.name LIKE ?
-                OR EXISTS (
-                    SELECT 1 FROM medications m
-                    WHERE m.person_id = e.person_id
-                      AND (m.name LIKE ? OR m.reason LIKE ? OR m.notes LIKE ?)
-                )
+                OR e.medication_dosage LIKE ? OR e.medication_reason LIKE ?
                 OR EXISTS (
                     SELECT 1 FROM allergies a
                     WHERE a.person_id = e.person_id
@@ -233,32 +230,51 @@ def index():
                 )
             )"""
         )
-        params.extend([like] * 10)
+        params.extend([like] * 9)
 
-    where_sql = " AND ".join(where)
-    count_sql = f"""
-        SELECT COUNT(*) AS total
-        FROM events e
-        JOIN people p ON p.id = e.person_id
-        WHERE {where_sql}
-    """
+    base_where_sql = " AND ".join(base_where)
+    history_where_sql = f"{base_where_sql} AND e.start_date <= ?"
+    future_where_sql = f"{base_where_sql} AND e.start_date > ?"
 
     with get_db() as db:
-        total_events = int(db.execute(count_sql, params).fetchone()["total"])
+        total_events = int(
+            db.execute(
+                f"""
+                SELECT COUNT(*) AS total
+                FROM events e JOIN people p ON p.id = e.person_id
+                WHERE {history_where_sql}
+                """,
+                [*params, today_iso],
+            ).fetchone()["total"]
+        )
         total_pages = max(1, (total_events + per_page - 1) // per_page)
         if page > total_pages:
             page = total_pages
         offset = (page - 1) * per_page
 
-        event_sql = f"""
+        # Historie wird paginiert und absteigend dargestellt.
+        events = db.execute(
+            f"""
             SELECT e.*, p.name AS person_name
-            FROM events e
-            JOIN people p ON p.id = e.person_id
-            WHERE {where_sql}
+            FROM events e JOIN people p ON p.id = e.person_id
+            WHERE {history_where_sql}
             ORDER BY e.start_date DESC, e.id DESC
             LIMIT ? OFFSET ?
-        """
-        events = db.execute(event_sql, [*params, per_page, offset]).fetchall()
+            """,
+            [*params, today_iso, per_page, offset],
+        ).fetchall()
+
+        # Kommende Einträge bleiben immer sichtbar und werden nicht paginiert.
+        future_events = db.execute(
+            f"""
+            SELECT e.*, p.name AS person_name
+            FROM events e JOIN people p ON p.id = e.person_id
+            WHERE {future_where_sql}
+            ORDER BY e.start_date ASC, e.id ASC
+            """,
+            [*params, today_iso],
+        ).fetchall()
+
         people = db.execute("SELECT * FROM people ORDER BY name").fetchall()
 
         side_params: list[Any] = []
@@ -294,7 +310,6 @@ def index():
             med_params,
         ).fetchall()
 
-    today_iso = date.today().isoformat()
     active_medications = [
         m for m in medications
         if m["start_date"] <= today_iso and (not m["end_date"] or m["end_date"] >= today_iso)
@@ -307,6 +322,7 @@ def index():
         "index.html",
         people=people,
         events=events,
+        future_events=future_events,
         allergy_groups=_group_by_person(allergies),
         medication_groups=_group_by_person(active_medications),
         medication_history_groups=_group_by_person(ended_medications),
@@ -317,6 +333,7 @@ def index():
         page=page,
         per_page=per_page,
         total_events=total_events,
+        total_future_events=len(future_events),
         total_pages=total_pages,
         page_start=page_start,
         page_end=page_end,

@@ -27,3 +27,45 @@
 /* v0.3.0 – vereinheitlichte Medikation */
 .medication-fields{border:1px solid #bfdbfe;background:#eff6ff;border-radius:.85rem;padding:.9rem}.medication-fields[hidden]{display:none}.medication-fields-head{font-weight:800;color:var(--accent);margin-bottom:.7rem}.medication-fields .form-grid{gap:.7rem}.medication-event-details{display:flex;flex-wrap:wrap;gap:.45rem .8rem;margin:.65rem 0;padding:.6rem .75rem;border-radius:.7rem;background:#f8fafc;color:#475569;font-size:.9rem}.medication-event-details span{display:inline-flex;align-items:center;gap:.25rem}.med-period{font-variant-numeric:tabular-nums}.history-with-action{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start}.history-with-action>div{min-width:0}
 @media(max-width:620px){.medication-fields{padding:.75rem}.history-with-action{gap:.6rem}.history-with-action .text-edit{flex:0 0 auto}}
+
+/* v0.3.1 – Timeline-Vorausschau, kompakte Aktionen und Filter-Politur */
+.topbar{padding-left:max(1rem,calc((100vw - 1360px)/2));padding-right:max(1rem,calc((100vw - 1360px)/2))}
+.page{max-width:1360px;width:100%}.flash-wrap{max-width:1360px;width:100%}
+.people-strip,.filters{width:100%}
+
+.filter-form{grid-template-columns:minmax(320px,1fr) 220px 130px auto;align-items:start}
+.filter-search-block{display:grid;gap:.65rem;min-width:0}
+.filter-actions{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;width:100%}
+.filter-actions .btn{width:100%}
+.important-filter{margin-top:1.72rem;align-self:start}
+
+.compact-action{width:2rem;height:2rem;display:grid;place-items:center;border:1px solid transparent;border-radius:.6rem;background:transparent;cursor:pointer;padding:0;font-size:1.05rem;line-height:1;transition:background .15s ease,border-color .15s ease,transform .15s ease}
+.compact-action:hover{transform:translateY(-1px)}
+.compact-edit{color:var(--accent)}.compact-edit:hover{background:var(--accent-soft);border-color:#bfdbfe}
+.compact-delete{color:var(--danger);font-size:.95rem}.compact-delete:hover{background:#fef2f2;border-color:#fecaca}
+.stack-actions{gap:.25rem}.stack-actions form{display:flex}
+
+.timeline-future{margin-bottom:1rem}
+.timeline-subheading{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:.25rem 0 .8rem;padding:.7rem .85rem;border:1px solid #bfdbfe;border-radius:.85rem;background:linear-gradient(135deg,#eff6ff,#f8fbff)}
+.timeline-subheading>div{display:flex;align-items:center;gap:.55rem}.timeline-subheading h3,.timeline-history-heading h3{margin:0;font-size:1rem}.timeline-subheading>span{color:var(--muted);font-size:.88rem}.timeline-subheading-icon{font-size:1.1rem}
+.timeline-planned .timeline-card{background:linear-gradient(135deg,#fff,#f8fbff)}
+.timeline-item.is-planned .timeline-dot{background:#fff;border-color:#60a5fa}.timeline-item.is-planned:before{background:#bfdbfe}
+.planned-label{display:inline-flex;margin-left:.55rem;padding:.15rem .45rem;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:.75rem;font-weight:700}
+.today-divider{position:relative;display:flex;align-items:center;justify-content:center;margin:1.45rem 0 1.25rem;color:#475569;font-size:.82rem;font-weight:800;letter-spacing:.02em;text-transform:uppercase}
+.today-divider:before,.today-divider:after{content:"";height:1px;background:linear-gradient(90deg,transparent,#94a3b8);flex:1}.today-divider:after{background:linear-gradient(90deg,#94a3b8,transparent)}
+.today-divider span{margin:0 .8rem;padding:.35rem .7rem;border:1px solid var(--border);border-radius:999px;background:#fff;box-shadow:0 3px 12px rgba(15,23,42,.05)}
+.timeline-history-heading{margin:0 0 .75rem;padding-left:.1rem;color:#334155}
+
+@media(max-width:1000px){
+  .filter-form{grid-template-columns:minmax(260px,1fr) 1fr 130px}
+  .important-filter{grid-column:2/4;margin-top:0;justify-self:start}
+}
+@media(max-width:620px){
+  .filter-form{grid-template-columns:1fr}
+  .important-filter{grid-column:auto;margin-top:0;width:100%}
+  .filter-actions{grid-template-columns:1fr 1fr}
+  .stack-actions{flex-direction:row;align-items:flex-start}
+  .compact-action{width:2.15rem;height:2.15rem}
+  .timeline-subheading{align-items:flex-start}.timeline-subheading>span{white-space:nowrap}
+  .planned-label{display:inline-flex;margin:.35rem 0 0 0}
+}

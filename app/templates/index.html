@@ -1,4 +1,30 @@
 {% extends "base.html" %}
+
+{% macro render_event(event, planned=false) %}
+<article class="timeline-item category-{{ event.category|lower|replace('ä','a')|replace(' ','-') }} {% if event.is_important %}is-important{% endif %} {% if planned %}is-planned{% endif %}">
+  <div class="timeline-dot">{{ category_icons.get(event.category, '•') }}</div>
+  <div class="timeline-card">
+    <div class="event-head">
+      <div>
+        <div class="event-date">{{ event.start_date }}{% if event.end_date %} bis {{ event.end_date }}{% endif %}{% if planned %}<span class="planned-label">🗓 Geplant</span>{% endif %}</div>
+        <h3>{% if event.is_important %}<span class="important-badge" title="Wichtiger Eintrag">!</span>{% endif %} {{ event.title }}</h3>
+        <div class="event-meta">{{ event.person_name }} · {{ category_icons.get(event.category, '') }} {{ event.category }}</div>
+      </div>
+      <button class="event-edit-btn" type="button" title="Eintrag bearbeiten" aria-label="Eintrag bearbeiten" data-edit-event data-id="{{ event.id }}" data-person-id="{{ event.person_id }}" data-category="{{ event.category|e }}" data-title="{{ event.title|e }}" data-start-date="{{ event.start_date }}" data-end-date="{{ event.end_date or '' }}" data-notes="{{ event.notes|e }}" data-document-url="{{ event.document_url|e }}" data-is-important="{{ event.is_important }}" data-medication-dosage="{{ event.medication_dosage|e }}" data-medication-reason="{{ event.medication_reason|e }}" data-medication-intolerance="{{ event.medication_intolerance }}"><span aria-hidden="true">✎</span></button>
+    </div>
+    {% if event.category == 'Medikament' and (event.medication_dosage or event.medication_reason or event.medication_intolerance) %}
+      <div class="medication-event-details">
+        {% if event.medication_dosage %}<span><strong>Dosierung:</strong> {{ event.medication_dosage }}</span>{% endif %}
+        {% if event.medication_reason %}<span><strong>Grund:</strong> {{ event.medication_reason }}</span>{% endif %}
+        {% if event.medication_intolerance %}<span class="warning">Unverträglichkeit</span>{% endif %}
+      </div>
+    {% endif %}
+    {% if event.notes %}<p class="event-notes">{{ event.notes }}</p>{% endif %}
+    <div class="event-footer"><span class="badge">{{ category_icons.get(event.category, '') }} {{ event.category }}</span>{% if event.document_url %}<a class="doc-link" href="{{ event.document_url }}" target="_blank" rel="noreferrer">Dokument öffnen</a>{% endif %}</div>
+  </div>
+</article>
+{% endmacro %}
+
 {% block content %}
 <section class="people-strip">
   <a class="person-card {% if not selected_person_id %}active{% endif %}" href="{{ url_for('index', q=q, category=selected_category, important='1' if important_only else '', per_page=per_page) }}">
@@ -22,36 +48,41 @@
 <section class="filters">
   <form method="get" class="filter-form">
     <input type="hidden" name="person_id" value="{{ selected_person_id }}">
-    <label><span>Suche</span><input type="search" name="q" value="{{ q }}" placeholder="Antibiotika, Grippe, HWS ..."></label>
+    <div class="filter-search-block">
+      <label><span>Suche</span><input type="search" name="q" value="{{ q }}" placeholder="Antibiotika, Grippe, HWS ..."></label>
+      <div class="filter-actions">
+        <button class="btn" type="submit">Filtern</button>
+        <a class="btn secondary" href="{{ url_for('index') }}">Zurücksetzen</a>
+      </div>
+    </div>
     <label><span>Kategorie</span><select name="category"><option value="">Alle Kategorien</option>{% for category in categories %}<option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category_icons[category] }} {{ category }}</option>{% endfor %}</select></label>
     <label><span>Einträge</span><select name="per_page">{% for size in (20, 50, 100) %}<option value="{{ size }}" {% if per_page == size %}selected{% endif %}>{{ size }} / Seite</option>{% endfor %}</select></label>
     <label class="important-filter"><input type="checkbox" name="important" value="1" {% if important_only %}checked{% endif %}> <span>Nur wichtige</span></label>
-    <button class="btn" type="submit">Filtern</button>
-    <a class="btn secondary" href="{{ url_for('index') }}">Zurücksetzen</a>
   </form>
 </section>
 
 <div class="layout">
   <section>
-    <div class="section-heading"><h2>Timeline</h2><span>{% if total_events %}{{ page_start }}–{{ page_end }} von {{ total_events }} Treffern{% else %}0 Treffer{% endif %}</span></div>
+    <div class="section-heading"><h2>Timeline</h2><span>{% if total_events %}{{ page_start }}–{{ page_end }} von {{ total_events }} bisherigen Treffern{% else %}0 bisherige Treffer{% endif %}</span></div>
+
+    {% if future_events %}
+      <section class="timeline-future" aria-labelledby="future-heading">
+        <div class="timeline-subheading">
+          <div><span class="timeline-subheading-icon">🗓</span><h3 id="future-heading">Kommende Einträge</h3></div>
+          <span>{{ total_future_events }} geplant</span>
+        </div>
+        <div class="timeline timeline-planned">
+          {% for event in future_events %}{{ render_event(event, true) }}{% endfor %}
+        </div>
+      </section>
+      <div class="today-divider"><span>Heute · {{ today }}</span></div>
+    {% endif %}
+
+    <div class="timeline-history-heading"><h3>Bisheriger Verlauf</h3></div>
     <div class="timeline">
       {% for event in events %}
-        <article class="timeline-item category-{{ event.category|lower|replace('ä','a')|replace(' ','-') }} {% if event.is_important %}is-important{% endif %}">
-          <div class="timeline-dot">{{ category_icons.get(event.category, '•') }}</div>
-          <div class="timeline-card">
-            <div class="event-head">
-              <div>
-                <div class="event-date">{{ event.start_date }}{% if event.end_date %} bis {{ event.end_date }}{% endif %}</div>
-                <h3>{% if event.is_important %}<span class="important-badge" title="Wichtiger Eintrag">!</span>{% endif %} {{ event.title }}</h3>
-                <div class="event-meta">{{ event.person_name }} · {{ category_icons.get(event.category, '') }} {{ event.category }}</div>
-              </div>
-              <button class="event-edit-btn" type="button" title="Eintrag bearbeiten" aria-label="Eintrag bearbeiten" data-edit-event data-id="{{ event.id }}" data-person-id="{{ event.person_id }}" data-category="{{ event.category|e }}" data-title="{{ event.title|e }}" data-start-date="{{ event.start_date }}" data-end-date="{{ event.end_date or '' }}" data-notes="{{ event.notes|e }}" data-document-url="{{ event.document_url|e }}" data-is-important="{{ event.is_important }}" data-medication-dosage="{{ event.medication_dosage|e }}" data-medication-reason="{{ event.medication_reason|e }}" data-medication-intolerance="{{ event.medication_intolerance }}"><span aria-hidden="true">✎</span></button>
-            </div>
-            {% if event.category == 'Medikament' and (event.medication_dosage or event.medication_reason or event.medication_intolerance) %}<div class="medication-event-details">{% if event.medication_dosage %}<span><strong>Dosierung:</strong> {{ event.medication_dosage }}</span>{% endif %}{% if event.medication_reason %}<span><strong>Grund:</strong> {{ event.medication_reason }}</span>{% endif %}{% if event.medication_intolerance %}<span class="warning">Unverträglichkeit</span>{% endif %}</div>{% endif %}{% if event.notes %}<p class="event-notes">{{ event.notes }}</p>{% endif %}
-            <div class="event-footer"><span class="badge">{{ category_icons.get(event.category, '') }} {{ event.category }}</span>{% if event.document_url %}<a class="doc-link" href="{{ event.document_url }}" target="_blank" rel="noreferrer">Dokument öffnen</a>{% endif %}</div>
-          </div>
-        </article>
-      {% else %}<div class="empty-state"><h3>Noch keine passenden Einträge</h3><p>Lege den ersten Gesundheits-Eintrag an oder ändere die Filter.</p></div>{% endfor %}
+        {{ render_event(event, false) }}
+      {% else %}<div class="empty-state"><h3>Noch keine passenden bisherigen Einträge</h3><p>Lege den ersten Gesundheits-Eintrag an oder ändere die Filter.</p></div>{% endfor %}
     </div>
 
     {% if total_pages > 1 %}
@@ -73,7 +104,10 @@
             {% for item in group["items"] %}
               <div class="stack-item">
                 <div class="stack-copy"><div class="stack-title-line"><strong>{{ item.name }}</strong>{% if item.reaction %}<span class="inline-detail">– {{ item.reaction }}</span>{% endif %}</div>{% if item.notes %}<small class="stack-note">{{ item.notes }}</small>{% endif %}</div>
-                <div class="stack-actions"><button type="button" class="text-edit" data-edit-allergy data-id="{{ item.id }}" data-person-id="{{ item.person_id }}" data-name="{{ item.name|e }}" data-reaction="{{ item.reaction|e }}" data-notes="{{ item.notes|e }}">Bearbeiten</button><form method="post" action="{{ url_for('delete_allergy', allergy_id=item.id) }}" data-confirm="Eintrag wirklich löschen?"><button class="text-danger" type="submit">Löschen</button></form></div>
+                <div class="stack-actions">
+                  <button type="button" class="compact-action compact-edit" title="Bearbeiten" aria-label="Allergie bearbeiten" data-edit-allergy data-id="{{ item.id }}" data-person-id="{{ item.person_id }}" data-name="{{ item.name|e }}" data-reaction="{{ item.reaction|e }}" data-notes="{{ item.notes|e }}"><span aria-hidden="true">✎</span></button>
+                  <form method="post" action="{{ url_for('delete_allergy', allergy_id=item.id) }}" data-confirm="Eintrag wirklich löschen?"><button class="compact-action compact-delete" type="submit" title="Löschen" aria-label="Allergie löschen"><span aria-hidden="true">🗑</span></button></form>
+                </div>
               </div>
             {% endfor %}
           </div>
@@ -90,7 +124,10 @@
             {% for med in group["items"] %}
               <div class="stack-item">
                 <div class="stack-copy"><strong>{{ med.name }}</strong>{% if med.dosage %}<span>{{ med.dosage }}</span>{% endif %}{% if med.reason %}<small>Grund: {{ med.reason }}</small>{% endif %}<small class="med-period">seit {{ med.start_date }}{% if med.end_date %} · bis {{ med.end_date }}{% endif %}</small>{% if med.notes %}<small class="stack-note">{{ med.notes }}</small>{% endif %}{% if med.intolerance %}<span class="warning">Unverträglichkeit</span>{% endif %}</div>
-                <div class="stack-actions"><button type="button" class="text-edit" data-edit-event data-id="{{ med.id }}" data-person-id="{{ med.person_id }}" data-category="Medikament" data-title="{{ med.name|e }}" data-start-date="{{ med.start_date }}" data-end-date="{{ med.end_date or '' }}" data-notes="{{ med.notes|e }}" data-document-url="{{ med.document_url|e }}" data-is-important="{{ med.is_important }}" data-medication-dosage="{{ med.dosage|e }}" data-medication-reason="{{ med.reason|e }}" data-medication-intolerance="{{ med.intolerance }}">Bearbeiten</button><form method="post" action="{{ url_for('delete_event', event_id=med.id) }}" data-confirm="Medikament und Timeline-Eintrag wirklich löschen?"><button class="text-danger" type="submit">Löschen</button></form></div>
+                <div class="stack-actions">
+                  <button type="button" class="compact-action compact-edit" title="Bearbeiten" aria-label="Medikament bearbeiten" data-edit-event data-id="{{ med.id }}" data-person-id="{{ med.person_id }}" data-category="Medikament" data-title="{{ med.name|e }}" data-start-date="{{ med.start_date }}" data-end-date="{{ med.end_date or '' }}" data-notes="{{ med.notes|e }}" data-document-url="{{ med.document_url|e }}" data-is-important="{{ med.is_important }}" data-medication-dosage="{{ med.dosage|e }}" data-medication-reason="{{ med.reason|e }}" data-medication-intolerance="{{ med.intolerance }}"><span aria-hidden="true">✎</span></button>
+                  <form method="post" action="{{ url_for('delete_event', event_id=med.id) }}" data-confirm="Medikament und Timeline-Eintrag wirklich löschen?"><button class="compact-action compact-delete" type="submit" title="Löschen" aria-label="Medikament löschen"><span aria-hidden="true">🗑</span></button></form>
+                </div>
               </div>
             {% endfor %}
           </div>
