@@ -49,19 +49,21 @@
 <section class="filters">
   <form method="get" class="filter-form">
     <input type="hidden" name="person_id" value="{{ selected_person_id }}">
-    <div class="filter-search-block">
-      <label><span>Suche</span><input type="search" name="q" value="{{ q }}" placeholder="Antibiotika, Grippe, HWS ..."></label>
+    <div class="filter-main-row">
+      <label class="filter-search"><span>Suche</span><input type="search" name="q" value="{{ q }}" placeholder="Antibiotika, Grippe, HWS ..."></label>
+      <label><span>Kategorie</span><select name="category"><option value="">Alle Kategorien</option>{% for category in categories %}<option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category_icons[category] }} {{ category }}</option>{% endfor %}</select></label>
+      <label><span>Einträge</span><select name="per_page">{% for size in (20, 50, 100) %}<option value="{{ size }}" {% if per_page == size %}selected{% endif %}>{{ size }} / Seite</option>{% endfor %}</select></label>
+      <label class="important-filter"><input type="checkbox" name="important" value="1" {% if important_only %}checked{% endif %}> <span>Nur wichtige</span></label>
+    </div>
+    <div class="filter-secondary-row">
+      <div class="date-range-filter">
+        <label><span>Zeitraum von</span><input type="date" name="date_from" value="{{ date_from }}"></label>
+        <label><span>bis</span><input type="date" name="date_to" value="{{ date_to }}"></label>
+      </div>
       <div class="filter-actions">
         <button class="btn" type="submit">Filtern</button>
         <a class="btn secondary" href="{{ url_for('index') }}">Zurücksetzen</a>
       </div>
-    </div>
-    <label><span>Kategorie</span><select name="category"><option value="">Alle Kategorien</option>{% for category in categories %}<option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category_icons[category] }} {{ category }}</option>{% endfor %}</select></label>
-    <label><span>Einträge</span><select name="per_page">{% for size in (20, 50, 100) %}<option value="{{ size }}" {% if per_page == size %}selected{% endif %}>{{ size }} / Seite</option>{% endfor %}</select></label>
-    <label class="important-filter"><input type="checkbox" name="important" value="1" {% if important_only %}checked{% endif %}> <span>Nur wichtige</span></label>
-    <div class="date-range-filter">
-      <label><span>Zeitraum von</span><input type="date" name="date_from" value="{{ date_from }}"></label>
-      <label><span>bis</span><input type="date" name="date_to" value="{{ date_to }}"></label>
     </div>
   </form>
 </section>

@@ -1,5 +1,13 @@
 # Backlog – Stinkis’ Krankenakten
 
+## In v0.5.1 erledigt
+
+- Filterbox-Layout v2 mit sauber integrierter Zeitraumwahl und Aktionszeile.
+- Gemeinsames Seitenraster / konsistente Außenkanten.
+- Mehr Abstand vor unteren Formularaktionen.
+- Persistente Dialoge: kein Schließen über Backdrop oder Escape.
+- Warnung bei bewusstem Schließen mit ungespeicherten Änderungen.
+
 ## Nächste Ausbaustufen
 
 - Jahresauswertung für ärztliche Krankschreibungen (Kalender-/Arbeitstage)

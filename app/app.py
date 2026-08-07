@@ -23,7 +23,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DB_PATH = DATA_DIR / "stinkis.db"
-APP_VERSION = "0.5.0"
+APP_VERSION = "0.5.1"
 SCHEMA_VERSION = 5
 MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024
 

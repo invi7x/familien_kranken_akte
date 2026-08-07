@@ -112,3 +112,41 @@
 .manage-item small{color:var(--muted);margin-top:.2rem}
 .manage-actions{display:flex;align-items:center;gap:.35rem;flex:0 0 auto}
 @media(max-width:620px){.report-actions{grid-template-columns:1fr}.manage-item{gap:.6rem}.modal-actions{margin-top:1.35rem}}
+
+/* v0.5.1 – UX/Polish: gemeinsames Raster, Filterbox v2, saubere Dialogabstände */
+.page,.flash-wrap{max-width:1360px;width:100%}
+.people-strip,.filters,.layout{width:100%;max-width:none}
+.layout>*{min-width:0}.sidebar{min-width:0}
+
+.filter-form{display:grid;grid-template-columns:1fr;gap:.9rem;align-items:stretch}
+.filter-main-row{display:grid;grid-template-columns:minmax(320px,1fr) 220px 130px auto;gap:.75rem;align-items:end;min-width:0}
+.filter-secondary-row{display:grid;grid-template-columns:minmax(420px,1.35fr) minmax(300px,.9fr);gap:.75rem;align-items:end;min-width:0}
+.filter-search{min-width:0}
+.date-range-filter{grid-column:auto;display:grid;grid-template-columns:1fr 1fr;gap:.75rem;align-items:end;min-width:0}
+.filter-actions{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;width:100%;align-self:end}
+.filter-actions .btn{width:100%;min-height:44px}
+.important-filter{margin-top:0;align-self:end;height:44px}
+
+/* Untere Aktionsleisten kleben nie am letzten Eingabefeld. */
+.modal-actions{margin-top:1.4rem;padding-top:.15rem}
+.modal-card>.modal-actions:last-child{margin-bottom:0}
+
+@media(max-width:1000px){
+  .filter-main-row{grid-template-columns:minmax(260px,1fr) 1fr 130px}
+  .important-filter{grid-column:2/4;justify-self:start;width:auto}
+  .filter-secondary-row{grid-template-columns:1fr 1fr}
+}
+@media(max-width:760px){
+  .filter-main-row{grid-template-columns:1fr 1fr}
+  .filter-search{grid-column:1/-1}
+  .important-filter{grid-column:auto;width:100%}
+  .filter-secondary-row{grid-template-columns:1fr}
+}
+@media(max-width:620px){
+  .filter-main-row{grid-template-columns:1fr}
+  .filter-search,.important-filter{grid-column:auto}
+  .date-range-filter{grid-template-columns:1fr 1fr}
+  .filter-actions{grid-template-columns:1fr 1fr}
+  .modal-actions{margin-top:1.5rem}
+}
+@media(max-width:430px){.date-range-filter{grid-template-columns:1fr}}

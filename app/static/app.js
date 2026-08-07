@@ -1,24 +1,66 @@
+const modalFormSnapshots = new WeakMap();
+
+function snapshotForm(form) {
+  if (!form) return "";
+  const values = [];
+  form.querySelectorAll("input, select, textarea").forEach((field) => {
+    if (!field.name || field.type === "file") return;
+    const value = (field.type === "checkbox" || field.type === "radio") ? field.checked : field.value;
+    values.push([field.name, value]);
+  });
+  return JSON.stringify(values);
+}
+
+function rememberModalState(modal) {
+  const form = modal?.querySelector("form");
+  if (form) modalFormSnapshots.set(modal, snapshotForm(form));
+}
+
+function modalHasUnsavedChanges(modal) {
+  const form = modal?.querySelector("form");
+  if (!form) return false;
+  const initial = modalFormSnapshots.get(modal);
+  return initial !== undefined && initial !== snapshotForm(form);
+}
+
+function closeModal(modal, { force = false } = {}) {
+  if (!modal?.open) return true;
+  if (!force && modalHasUnsavedChanges(modal) && !confirm("Ungespeicherte Änderungen verwerfen?")) return false;
+  modal.close();
+  return true;
+}
+
 function openModal(id) {
   const modal = document.getElementById(id);
-  if (modal && !modal.open) modal.showModal();
+  if (modal && !modal.open) {
+    modal.showModal();
+    requestAnimationFrame(() => rememberModalState(modal));
+  }
 }
 
 document.querySelectorAll("[data-open-modal]").forEach((button) => {
   button.addEventListener("click", () => {
     const current = button.closest("dialog");
-    if (current && current.id !== button.dataset.openModal) current.close();
+    if (current && current.id !== button.dataset.openModal) closeModal(current, { force: true });
     openModal(button.dataset.openModal);
   });
 });
 
 document.querySelectorAll("[data-close-modal]").forEach((button) => {
-  button.addEventListener("click", () => button.closest("dialog")?.close());
+  button.addEventListener("click", () => closeModal(button.closest("dialog")));
 });
 
 document.querySelectorAll("dialog").forEach((dialog) => {
-  dialog.addEventListener("click", (event) => {
-    if (event.target === dialog) dialog.close();
-  });
+  // Dialoge bleiben bewusst offen: kein Schließen durch Klick auf den Backdrop
+  // und auch nicht durch Escape. Schließen erfolgt nur über die sichtbare Aktion.
+  dialog.addEventListener("cancel", (event) => event.preventDefault());
+});
+
+window.addEventListener("beforeunload", (event) => {
+  const dirtyOpenModal = [...document.querySelectorAll("dialog[open]")].some(modalHasUnsavedChanges);
+  if (!dirtyOpenModal) return;
+  event.preventDefault();
+  event.returnValue = "";
 });
 
 document.querySelectorAll("[data-confirm]").forEach((form) => {
@@ -46,7 +88,7 @@ syncMedicationFields(newEventCategory, newMedicationFields, newEventTitleLabel, 
 
 document.querySelectorAll("[data-new-medication]").forEach((button) => {
   button.addEventListener("click", () => {
-    button.closest("dialog")?.close();
+    closeModal(button.closest("dialog"), { force: true });
     if (newEventCategory) newEventCategory.value = "Medikament";
     syncMedicationFields(newEventCategory, newMedicationFields, newEventTitleLabel, newEventTitle);
     openModal("event-modal");
@@ -77,8 +119,8 @@ document.querySelectorAll("[data-edit-event]").forEach((button) => {
     syncMedicationFields(editCategory, editMedicationFields);
     editForm.action = `/events/${button.dataset.id}/edit`;
     deleteBtn.dataset.eventId = button.dataset.id;
-    button.closest("dialog")?.close();
-    editModal.showModal();
+    closeModal(button.closest("dialog"), { force: true });
+    openModal("edit-event-modal");
   });
 });
 
@@ -100,7 +142,7 @@ document.querySelectorAll("[data-edit-person]").forEach((button) => {
     document.getElementById("edit-person-gender").value = button.dataset.gender;
     document.getElementById("edit-person-notes").value = button.dataset.notes;
     editPersonForm.action = `/people/${button.dataset.id}/edit`;
-    button.closest("dialog")?.close();
+    closeModal(button.closest("dialog"), { force: true });
     openModal("edit-person-modal");
   });
 });
@@ -128,7 +170,7 @@ document.querySelectorAll("[data-edit-allergy]").forEach((button) => {
     editAllergyResolved.checked = Boolean(button.dataset.endDate);
     syncAllergyResolvedFields();
     editAllergyForm.action = `/allergies/${button.dataset.id}/edit`;
-    button.closest("dialog")?.close();
+    closeModal(button.closest("dialog"), { force: true });
     openModal("edit-allergy-modal");
   });
 });
