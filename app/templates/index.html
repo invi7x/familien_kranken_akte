@@ -54,7 +54,7 @@
         {% if person.gender == 'male' %}<span class="gender-icon" title="männlich">♂</span>{% elif person.gender == 'female' %}<span class="gender-icon" title="weiblich">♀</span>{% endif %}
       </div>
       <strong>{{ person.name }}</strong>
-      <span>{% if person.birth_date %}geb. {{ person.birth_date }}{% else %}Profil öffnen{% endif %}</span>
+      <span>{% if person.age is not none %}{{ person.age }} {% if person.age == 1 %}Jahr{% else %}Jahre{% endif %}{% else %}Profil öffnen{% endif %}</span>
     </a>
   {% endfor %}
   <button class="person-card add-card" data-open-modal="person-modal"><strong>+ Person</strong><span>Familienmitglied anlegen</span></button>

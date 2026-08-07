@@ -1,17 +1,17 @@
 services:
-  stinkis-krankenakten-v063:
+  stinkis-krankenakten-v065:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: stinkis-krankenakten-v063
+    container_name: stinkis-krankenakten-v065
     restart: unless-stopped
     environment:
       DATA_DIR: /data
       SECRET_KEY: change-this-secret-key
     ports:
-      - "8496:8484"
+      - "8497:8484"
     volumes:
-      - stinkis_v063_test_data:/data
+      - stinkis_v065_test_data:/data
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8484/health')"]
       interval: 30s
@@ -20,5 +20,5 @@ services:
       start_period: 15s
 
 volumes:
-  stinkis_v063_test_data:
-    name: stinkis_v063_test_data
+  stinkis_v065_test_data:
+    name: stinkis_v065_test_data

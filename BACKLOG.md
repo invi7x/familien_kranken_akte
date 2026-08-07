@@ -2,6 +2,15 @@
 
 ## In v0.6.2 erledigt
 
+## In v0.6.5 erledigt
+
+- Dirty-State-Bug behoben: Beim normalen Speichern/Importieren keine falsche „Website verlassen?“-Warnung mehr.
+- Hauptsuche etwas schmaler; „Nur wichtige“ bleibt vollständig im Filterraster und ist sauber ausgerichtet.
+- Personenkarten zeigen aktuelles Alter statt Geburtsdatum.
+- Sicherungsdialog mit modernem Datei-Button, mehr Abstand und kürzerem Hinweistext.
+- Datei-Upload beim Anlegen neuer Personen im gleichen modernen Stil.
+- Formularabstände im Personen-Editor und an unteren Aktionsleisten verbessert.
+
 - Statusfilter Geplant / Laufend / Abgeschlossen in der Timeline-Suche.
 - Korrekte Gesamt-Trefferanzeige inklusive zukünftiger Einträge.
 - Zukunftsvorschau auf fünf Einträge begrenzt, mit Auf-/Zuklappen weiterer Termine.

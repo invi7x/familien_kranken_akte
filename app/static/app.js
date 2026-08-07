@@ -1,12 +1,18 @@
 const modalFormSnapshots = new WeakMap();
 let peopleOrderChanged = false;
+let formSubmissionInProgress = false;
 
 
 function snapshotForm(form) {
   if (!form) return "";
   const values = [];
   form.querySelectorAll("input, select, textarea").forEach((field) => {
-    if (!field.name || field.type === "file") return;
+    if (!field.name) return;
+    if (field.type === "file") {
+      const files = [...(field.files || [])].map((file) => [file.name, file.size, file.lastModified]);
+      values.push([field.name, files]);
+      return;
+    }
     const value = (field.type === "checkbox" || field.type === "radio") ? field.checked : field.value;
     values.push([field.name, value]);
   });
@@ -66,6 +72,9 @@ document.querySelectorAll("dialog").forEach((dialog) => {
 });
 
 window.addEventListener("beforeunload", (event) => {
+  // Ein bewusst abgeschicktes Formular ist kein Datenverlust. Ohne diese
+  // Ausnahme zeigte der Browser beim Speichern fälschlich „Website verlassen?“.
+  if (formSubmissionInProgress) return;
   const dirtyOpenModal = [...document.querySelectorAll("dialog[open]")].some(modalHasUnsavedChanges);
   if (!dirtyOpenModal) return;
   event.preventDefault();
@@ -117,6 +126,17 @@ document.querySelectorAll("[data-confirm]").forEach((form) => {
       form.dataset.confirmed = "1";
       form.requestSubmit();
     }, form.dataset.confirmTitle || "Wirklich löschen?");
+  });
+});
+
+// Einheitliche Datei-Auswahl: native Browser-Schaltfläche bleibt verborgen,
+// der gewählte Dateiname wird im App-Design angezeigt.
+document.querySelectorAll("[data-file-input]").forEach((input) => {
+  input.addEventListener("change", () => {
+    const target = document.getElementById(input.dataset.fileNameTarget || "");
+    if (!target) return;
+    const file = input.files?.[0];
+    target.textContent = file ? file.name : (input.name === "backup_file" ? "Keine Sicherung ausgewählt" : "Kein Bild ausgewählt");
   });
 });
 
@@ -402,4 +422,14 @@ futureToggle?.addEventListener("click", () => {
   futureToggle.textContent = currentlyHidden
     ? "Weniger geplante Einträge anzeigen"
     : `+ Weitere ${futureToggle.dataset.extra || extras.length} geplante Einträge anzeigen`;
+});
+
+// Erst nach allen formularspezifischen Submit-Handlern entscheiden, ob die Seite
+// tatsächlich verlassen wird. So bleibt die Warnung bei echtem Datenverlust aktiv,
+// erscheint aber niemals beim normalen Speichern/Importieren.
+document.addEventListener("submit", (event) => {
+  if (event.defaultPrevented) return;
+  formSubmissionInProgress = true;
+  const modal = event.target.closest?.("dialog");
+  if (modal) modalFormSnapshots.set(modal, snapshotForm(event.target));
 });

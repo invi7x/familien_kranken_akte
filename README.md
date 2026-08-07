@@ -1,39 +1,40 @@
-# Stinkis’ Krankenakten – Version 0.6.3
+# Stinkis’ Krankenakten – Version 0.6.5
 
 Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 
-## Neu in Version 0.6.3
+## Neu in Version 0.6.5
 
-- Neuer Timeline-Filter **Status** mit **Geplant / Laufend / Abgeschlossen**.
-- Die beiden Zeitraumfelder sind kompakter; der Statusfilter sitzt rechts daneben.
-- **Nur wichtige** ist auf dieselbe Feldhöhe wie die übrigen Filter gebracht.
-- Trefferanzeige zählt jetzt **Zukunft + Vergangenheit** und weist beide Anteile getrennt aus.
-- Kommende Einträge zeigen standardmäßig höchstens **5 Termine**; weitere können mit einem Klick ein-/ausgeblendet werden.
-- Bei Filter **Status = Geplant** greift die normale 20/50/100-Pagination auch für zukünftige Einträge.
-- In Allergie- und Medikamentenboxen bleibt nur noch das kompakte blaue **+** ohne langen „Hinzufügen“-Text.
-- Geschlechtssymbol steht in den Mehrwertboxen direkt neben dem Personennamen.
-- Profilbild-Bereich in **Person bearbeiten** modernisiert: aktueller Avatar/Initialen, eigener Bild-auswählen-Button und Dateivorschau.
-- Datenschema bleibt **Version 6**; v0.6.1-Backups sind direkt kompatibel.
+- Bugfix: Beim bewussten Speichern/Importieren erscheint keine irreführende Browser-Warnung „Website verlassen?“ mehr.
+- Filterbox nachpoliert: Hauptsuche etwas kompakter, **Nur wichtige** sauber im Raster und auf einheitlicher Feldhöhe.
+- Personen-Karten zeigen jetzt das **aktuelle Alter** statt des Geburtsdatums.
+- Sicherungsdialog aufgeräumt und Hinweistext verkürzt.
+- Moderner Datei-Button **Sicherung auswählen** statt nativer Browser-Dateiauswahl.
+- Einheitlicher moderner Datei-Button auch beim Anlegen neuer Personen.
+- Mehr Abstand zwischen Dateiauswahl und Import-Button.
+- Mehr Luft zwischen „Der Name bleibt unverändert.“ und dem Feld „Geburtsdatum“.
+- Untere Speichern-/Import-Aktionsleisten bekommen konsistent mehr Abstand zum letzten Eingabefeld.
+- Favicon aus v0.6.4 bleibt eingebunden.
+- Datenschema bleibt **Version 6**; bestehende v0.6.x-Backups sind direkt kompatibel.
 
 ## Parallel testen
 
 Vorher in der laufenden Version über **Sicherung** einen aktuellen JSON-Export erstellen.
 
 ```bash
-cd /docker/stinkis-krankenakten-v0.6.4
+cd /docker/stinkis-krankenakten-v0.6.5
 sudo docker compose -f compose-test.yaml up -d --build
 ```
 
 Aufruf:
 
 ```text
-http://SERVER-IP:8496
+http://SERVER-IP:8497
 ```
 
 Test-Volume:
 
 ```text
-stinkis_v063_test_data
+stinkis_v065_test_data
 ```
 
 Damit bleibt die bisherige Installation unangetastet.
@@ -58,8 +59,3 @@ Die Daten liegen standardmäßig im Docker-Volume `stinkis_krankenakten_data`. Z
 ## Sicherheit
 
 Die App besitzt noch keine Anmeldung. Sie sollte nur im Heimnetz oder über einen abgesicherten VPN-Zugang erreichbar sein.
-
-### v0.6.4
-- Filter-Aktionen wieder konsequent links, Zeitraum und Status rechts gruppiert.
-- Statusauswahl kompakter; Datumsfelder bleiben im Inhaltsraster.
-- Allergie- und Medikamentengruppen je Person dezent eingerahmt/hinterlegt.

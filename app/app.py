@@ -215,6 +215,17 @@ def _group_by_person(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
 
 
 
+def _age_from_birth_date(value: str | None, today_value: date | None = None) -> int | None:
+    if not value:
+        return None
+    try:
+        born = date.fromisoformat(value)
+    except (TypeError, ValueError):
+        return None
+    today_value = today_value or date.today()
+    return today_value.year - born.year - ((today_value.month, today_value.day) < (born.month, born.day))
+
+
 GERMAN_MONTHS = {
     1: "Januar", 2: "Februar", 3: "März", 4: "April", 5: "Mai", 6: "Juni",
     7: "Juli", 8: "August", 9: "September", 10: "Oktober", 11: "November", 12: "Dezember",
@@ -362,7 +373,12 @@ def index():
                 [*params, today_iso],
             ).fetchall()
 
-        people = db.execute("SELECT * FROM people ORDER BY sort_order, name, id").fetchall()
+        people_rows = db.execute("SELECT * FROM people ORDER BY sort_order, name, id").fetchall()
+        people = []
+        for row in people_rows:
+            person = dict(row)
+            person["age"] = _age_from_birth_date(person.get("birth_date"), date.fromisoformat(today_iso))
+            people.append(person)
 
         side_params: list[Any] = []
         side_where = ""
@@ -900,7 +916,10 @@ def report_pdf():
     styles.add(ParagraphStyle(name="EventTitle", parent=styles["Heading3"], fontSize=11, leading=14, spaceAfter=3))
     story = [Paragraph("Gesundheitsakte", styles["Title"]), Paragraph(escape(person["name"]), styles["Heading2"])]
     meta = []
-    if person["birth_date"]: meta.append(f"Geboren: {person['birth_date']}")
+    if person["birth_date"]:
+        age = _age_from_birth_date(person["birth_date"])
+        age_text = f" · {age} {'Jahr' if age == 1 else 'Jahre'}" if age is not None else ""
+        meta.append(f"Geboren: {person['birth_date']}{age_text}")
     if date_from or date_to: meta.append(f"Zeitraum: {date_from or 'offen'} bis {date_to or 'offen'}")
     if category: meta.append(f"Kategorie: {category}")
     if important_only: meta.append("Nur wichtige Einträge")
