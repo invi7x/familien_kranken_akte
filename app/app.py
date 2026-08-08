@@ -23,7 +23,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DB_PATH = DATA_DIR / "stinkis.db"
-APP_VERSION = "0.6.7"
+APP_VERSION = "0.6.8"
 SCHEMA_VERSION = 6
 MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024
 
@@ -309,21 +309,19 @@ def index():
         base_where.append("e.start_date > ?")
         params.append(today_iso)
     elif status_filter == "running":
+        # Ohne Enddatum gilt ein bereits begonnener Eintrag als laufend.
+        # Abgeschlossen ist ein Eintrag nur mit explizitem Enddatum in der Vergangenheit.
         base_where.append(
             """e.start_date <= ? AND (
-                (e.end_date IS NOT NULL AND e.end_date >= ?)
-                OR (e.end_date IS NULL AND (e.start_date = ? OR e.category IN ('Medikament','Krankheit')))
+                e.end_date IS NULL OR e.end_date >= ?
             )"""
         )
-        params.extend([today_iso, today_iso, today_iso])
+        params.extend([today_iso, today_iso])
     elif status_filter == "completed":
         base_where.append(
-            """e.start_date <= ? AND (
-                (e.end_date IS NOT NULL AND e.end_date < ?)
-                OR (e.end_date IS NULL AND e.start_date < ? AND e.category NOT IN ('Medikament','Krankheit'))
-            )"""
+            """e.start_date <= ? AND e.end_date IS NOT NULL AND e.end_date < ?"""
         )
-        params.extend([today_iso, today_iso, today_iso])
+        params.extend([today_iso, today_iso])
 
     base_where_sql = " AND ".join(base_where)
     history_where_sql = f"{base_where_sql} AND e.start_date <= ?"

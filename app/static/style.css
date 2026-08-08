@@ -418,3 +418,8 @@
 /* v0.6.7 – letzte Formular-/Pagination-Politur */
 .allergy-save-actions{margin-top:1.65rem;padding-bottom:.35rem}
 @media(max-width:620px){.allergy-save-actions{margin-top:1.5rem;padding-bottom:.3rem}}
+
+/* v0.6.8 – Stabilität im Normalbetrieb */
+.allergy-save-actions{margin-top:2rem;padding-bottom:.75rem}
+.history-empty[hidden]{display:none}
+@media(max-width:620px){.allergy-save-actions{margin-top:1.8rem;padding-bottom:.65rem}}

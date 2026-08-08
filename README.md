@@ -1,27 +1,24 @@
-# Stinkis’ Krankenakten – Version 0.6.7
+# Stinkis’ Krankenakten – Version 0.6.8
 
 Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 
-## Neu in Version 0.6.7
+## Neu in Version 0.6.8
 
-- Bugfix: Beim bewussten Speichern/Importieren erscheint keine irreführende Browser-Warnung „Website verlassen?“ mehr.
-- Filterbox nachpoliert: Hauptsuche etwas kompakter, **Nur wichtige** sauber im Raster und auf einheitlicher Feldhöhe.
-- Personen-Karten zeigen jetzt das **aktuelle Alter** statt des Geburtsdatums.
-- Sicherungsdialog aufgeräumt und Hinweistext verkürzt.
-- Moderner Datei-Button **Sicherung auswählen** statt nativer Browser-Dateiauswahl.
-- Einheitlicher moderner Datei-Button auch beim Anlegen neuer Personen.
-- Mehr Abstand zwischen Dateiauswahl und Import-Button.
-- Mehr Luft zwischen „Der Name bleibt unverändert.“ und dem Feld „Geburtsdatum“.
-- Untere Speichern-/Import-Aktionsleisten bekommen konsistent mehr Abstand zum letzten Eingabefeld.
-- Favicon aus v0.6.4 bleibt eingebunden.
-- Datenschema bleibt **Version 6**; bestehende v0.6.x-Backups sind direkt kompatibel.
+- Statuslogik korrigiert: Einträge ohne Enddatum bleiben nach ihrem Beginn **Laufend**. **Abgeschlossen** ist nur noch möglich, wenn ein echtes Enddatum in der Vergangenheit vorliegt.
+- Statusfilter verwendet exakt dieselbe Logik wie die Timeline-Tags.
+- Löschen in Medikamenten-/Allergie-Verwaltungsdialogen synchronisiert jetzt die sichtbaren Dashboard-Boxen sofort, ohne Seitenreload.
+- Leere Personen-Gruppen verschwinden nach dem Löschen des letzten zugehörigen Eintrags automatisch.
+- Die Medikationshistorie und abgeschlossene Allergien zeigen keine verwaisten Personennamen mehr; bei komplett leerer Historie erscheint ein sauberer Leerzustand.
+- Notizen in den rechten Übersichtsboxen und Historien werden explizit mit **„Notiz:“** gekennzeichnet.
+- Der Speichern-Button im Allergie-/Unverträglichkeitsdialog erhält nochmals mehr Abstand zum Formularende.
+- Schema-Version bleibt **6**; bestehende JSON-Sicherungen aus v0.6.x sind direkt kompatibel.
 
 ## Parallel testen
 
 Vorher in der laufenden Version über **Sicherung** einen aktuellen JSON-Export erstellen.
 
 ```bash
-cd /docker/stinkis-krankenakten-v0.6.7
+cd /docker/stinkis-krankenakten-v0.6.8
 sudo docker compose -f compose-test.yaml up -d --build
 ```
 

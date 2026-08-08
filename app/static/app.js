@@ -131,6 +131,40 @@ confirmOk?.addEventListener("click", () => {
 
 confirmModal?.addEventListener("cancel", (event) => event.preventDefault());
 
+
+function cleanupEmptyPersonGroups() {
+  document.querySelectorAll(".sidebar .person-group, #medication-history-modal .person-group, #allergy-history-modal .person-group").forEach((group) => {
+    const hasItems = group.querySelector("[data-event-id], [data-allergy-id]");
+    if (!hasItems) group.remove();
+  });
+
+  const medHistoryHasGroups = !!document.querySelector("#medication-history-modal .person-group");
+  const medEmpty = document.getElementById("medication-history-empty");
+  if (medEmpty) medEmpty.hidden = medHistoryHasGroups;
+  const medLink = document.getElementById("medication-history-link");
+  if (medLink && !medHistoryHasGroups) medLink.hidden = true;
+
+  const allergyHistoryHasGroups = !!document.querySelector("#allergy-history-modal .person-group");
+  const allergyEmpty = document.getElementById("allergy-history-empty");
+  if (allergyEmpty) allergyEmpty.hidden = allergyHistoryHasGroups;
+  const allergyLink = document.getElementById("allergy-history-link");
+  if (allergyLink && !allergyHistoryHasGroups) allergyLink.hidden = true;
+}
+
+function syncDeletedItem(form) {
+  const source = form.closest("[data-event-id], [data-allergy-id]");
+  const eventId = source?.dataset.eventId;
+  const allergyId = source?.dataset.allergyId;
+
+  if (eventId) {
+    document.querySelectorAll(`[data-event-id="${eventId}"]`).forEach((node) => node.remove());
+  }
+  if (allergyId) {
+    document.querySelectorAll(`[data-allergy-id="${allergyId}"]`).forEach((node) => node.remove());
+  }
+  cleanupEmptyPersonGroups();
+}
+
 document.querySelectorAll("[data-confirm]").forEach((form) => {
   form.addEventListener("submit", (event) => {
     if (form.dataset.confirmed === "1") {
@@ -143,8 +177,7 @@ document.querySelectorAll("[data-confirm]").forEach((form) => {
         try {
           const response = await fetch(form.action, { method: "POST", body: new FormData(form), headers: { "X-Requested-With": "fetch" } });
           if (!response.ok) throw new Error("Löschen fehlgeschlagen.");
-          const item = form.closest(".manage-item, .history-item");
-          item?.remove();
+          syncDeletedItem(form);
           return;
         } catch (error) {
           requestConfirmation(error.message || "Löschen fehlgeschlagen.", () => {}, "Fehler", { okText: "OK", cancelText: "Schließen", danger: false });

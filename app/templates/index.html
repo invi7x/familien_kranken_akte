@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% macro render_event(event, planned=false) %}
-<article class="timeline-item category-{{ event.category|lower|replace('ä','a')|replace(' ','-') }} {% if event.is_important %}is-important{% endif %} {% if planned %}is-planned{% endif %}">
+<article data-event-id="{{ event.id }}" class="timeline-item category-{{ event.category|lower|replace('ä','a')|replace(' ','-') }} {% if event.is_important %}is-important{% endif %} {% if planned %}is-planned{% endif %}">
   <div class="timeline-dot">{{ category_icons.get(event.category, '•') }}</div>
   <div class="timeline-card">
     <div class="event-head">
@@ -11,14 +11,8 @@
             <span class="status-label status-planned">🗓 Geplant</span>
           {% elif event.end_date and event.end_date < today %}
             <span class="status-label status-completed">✓ Abgeschlossen</span>
-          {% elif event.end_date and event.start_date <= today and event.end_date >= today %}
+          {% elif event.start_date <= today and (not event.end_date or event.end_date >= today) %}
             <span class="status-label status-running">● Laufend</span>
-          {% elif not event.end_date and event.start_date == today %}
-            <span class="status-label status-running">● Laufend</span>
-          {% elif not event.end_date and event.start_date < today and event.category in ['Medikament', 'Krankheit'] %}
-            <span class="status-label status-running">● Laufend</span>
-          {% elif not event.end_date and event.start_date < today %}
-            <span class="status-label status-completed">✓ Abgeschlossen</span>
           {% endif %}
         </div>
         <h3>{% if event.is_important %}<span class="important-badge" title="Wichtiger Eintrag">!</span>{% endif %} {{ event.title }}</h3>
@@ -130,11 +124,11 @@
         {% for group in allergy_groups %}
           <div class="person-group">
             <div class="person-group-head"><div class="person-avatar sidebar-avatar">{% if group.profile_image %}<img src="{{ group.profile_image }}" alt="Profilbild von {{ group.person_name }}">{% else %}{{ group.person_name[:1]|upper }}{% endif %}</div><div class="sidebar-name-line"><h3>{{ group.person_name }}</h3>{% if group.gender == 'male' %}<span class="sidebar-gender" title="männlich">♂</span>{% elif group.gender == 'female' %}<span class="sidebar-gender" title="weiblich">♀</span>{% endif %}</div><button class="person-manage-btn" type="button" title="Allergien verwalten" aria-label="Allergien von {{ group.person_name }} verwalten" data-open-modal="manage-allergies-{{ group.person_id }}">✎</button></div>
-            <div class="compact-list">{% for item in group["items"] %}<div class="compact-list-item"><div class="stack-title-line"><strong>{{ item.name }}</strong>{% if item.reaction %}<span class="inline-detail">– {{ item.reaction }}</span>{% endif %}</div>{% if item.start_date %}<small class="allergy-period">seit {{ item.start_date }}</small>{% endif %}{% if item.notes %}<small class="stack-note">{{ item.notes }}</small>{% endif %}</div>{% endfor %}</div>
+            <div class="compact-list">{% for item in group["items"] %}<div class="compact-list-item" data-allergy-id="{{ item.id }}"><div class="stack-title-line"><strong>{{ item.name }}</strong>{% if item.reaction %}<span class="inline-detail">– {{ item.reaction }}</span>{% endif %}</div>{% if item.start_date %}<small class="allergy-period">seit {{ item.start_date }}</small>{% endif %}{% if item.notes %}<small class="stack-note"><strong>Notiz:</strong> {{ item.notes }}</small>{% endif %}</div>{% endfor %}</div>
           </div>
         {% else %}<p class="muted">{% if selected_person_id %}Für diese Person ist noch nichts eingetragen.{% else %}Noch nichts eingetragen.{% endif %}</p>{% endfor %}
       </div>
-      {% if allergy_history_groups %}<button class="history-link" data-open-modal="allergy-history-modal">Abgeschlossene Allergien anzeigen</button>{% endif %}
+      {% if allergy_history_groups %}<button class="history-link" id="allergy-history-link" data-open-modal="allergy-history-modal">Abgeschlossene Allergien anzeigen</button>{% endif %}
     </section>
 
     <section class="panel">
@@ -143,11 +137,11 @@
         {% for group in medication_groups %}
           <div class="person-group">
             <div class="person-group-head"><div class="person-avatar sidebar-avatar">{% if group.profile_image %}<img src="{{ group.profile_image }}" alt="Profilbild von {{ group.person_name }}">{% else %}{{ group.person_name[:1]|upper }}{% endif %}</div><div class="sidebar-name-line"><h3>{{ group.person_name }}</h3>{% if group.gender == 'male' %}<span class="sidebar-gender" title="männlich">♂</span>{% elif group.gender == 'female' %}<span class="sidebar-gender" title="weiblich">♀</span>{% endif %}</div><button class="person-manage-btn" type="button" title="Medikamente verwalten" aria-label="Medikamente von {{ group.person_name }} verwalten" data-open-modal="manage-medications-{{ group.person_id }}">✎</button></div>
-            <div class="compact-list">{% for med in group["items"] %}<div class="compact-list-item"><strong>{{ med.name }}</strong>{% if med.dosage %}<span>{{ med.dosage }}</span>{% endif %}{% if med.reason %}<small>Grund: {{ med.reason }}</small>{% endif %}<small class="med-period">seit {{ med.start_date }}{% if med.end_date %} · bis {{ med.end_date }}{% endif %}</small>{% if med.notes %}<small class="stack-note">{{ med.notes }}</small>{% endif %}{% if med.intolerance %}<span class="warning">Unverträglichkeit</span>{% endif %}</div>{% endfor %}</div>
+            <div class="compact-list">{% for med in group["items"] %}<div class="compact-list-item" data-event-id="{{ med.id }}"><strong>{{ med.name }}</strong>{% if med.dosage %}<span>{{ med.dosage }}</span>{% endif %}{% if med.reason %}<small>Grund: {{ med.reason }}</small>{% endif %}<small class="med-period">seit {{ med.start_date }}{% if med.end_date %} · bis {{ med.end_date }}{% endif %}</small>{% if med.notes %}<small class="stack-note"><strong>Notiz:</strong> {{ med.notes }}</small>{% endif %}{% if med.intolerance %}<span class="warning">Unverträglichkeit</span>{% endif %}</div>{% endfor %}</div>
           </div>
         {% else %}<p class="muted">Keine aktuell laufende Medikation{% if selected_person_id %} für diese Person{% endif %}.</p>{% endfor %}
       </div>
-      {% if medication_history_groups %}<button class="history-link" data-open-modal="medication-history-modal">Beendete Medikamente anzeigen</button>{% endif %}
+      {% if medication_history_groups %}<button class="history-link" id="medication-history-link" data-open-modal="medication-history-modal">Beendete Medikamente anzeigen</button>{% endif %}
     </section>
 
     <section class="panel placeholder-panel"><h2>🌿 Später: Pollenflug</h2><p class="muted">Platzhalter für ein zukünftiges, standortbezogenes Pollenflug-Widget.</p></section>
