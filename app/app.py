@@ -23,7 +23,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DB_PATH = DATA_DIR / "stinkis.db"
-APP_VERSION = "0.6.3"
+APP_VERSION = "0.6.6"
 SCHEMA_VERSION = 6
 MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024
 
@@ -354,7 +354,7 @@ def index():
                 f"""SELECT e.*, p.name AS person_name, p.profile_image AS person_profile_image
                     FROM events e JOIN people p ON p.id=e.person_id
                     WHERE {future_where_sql}
-                    ORDER BY e.start_date ASC, e.id ASC LIMIT ? OFFSET ?""",
+                    ORDER BY e.start_date DESC, e.id DESC LIMIT ? OFFSET ?""",
                 [*params, today_iso, per_page, offset],
             ).fetchall()
         else:
@@ -369,7 +369,7 @@ def index():
                 f"""SELECT e.*, p.name AS person_name, p.profile_image AS person_profile_image
                     FROM events e JOIN people p ON p.id=e.person_id
                     WHERE {future_where_sql}
-                    ORDER BY e.start_date ASC, e.id ASC""",
+                    ORDER BY e.start_date DESC, e.id DESC""",
                 [*params, today_iso],
             ).fetchall()
 
@@ -541,9 +541,17 @@ def edit_person(person_id: int):
 def delete_person(person_id: int):
     with get_db() as db:
         db.execute("DELETE FROM people WHERE id = ?", (person_id,))
-    flash("Person und zugehörige Daten wurden gelöscht.", "success")
-    return redirect(url_for("index"))
+    return _post_action_response("Person und zugehörige Daten wurden gelöscht.")
 
+
+
+def _post_action_response(message: str):
+    """Keep the current filter context on normal POSTs and support modal AJAX actions."""
+    if request.headers.get("X-Requested-With") == "fetch":
+        return ("", 204)
+    flash(message, "success")
+    referrer = request.referrer or url_for("index")
+    return redirect(referrer)
 
 
 def _valid_date_range(start_date: str, end_date: str | None) -> bool:
@@ -642,8 +650,7 @@ def edit_event(event_id: int):
 def delete_event(event_id: int):
     with get_db() as db:
         db.execute("DELETE FROM events WHERE id = ?", (event_id,))
-    flash("Eintrag wurde gelöscht.", "success")
-    return redirect(url_for("index"))
+    return _post_action_response("Eintrag wurde gelöscht.")
 
 
 @app.post("/allergies")

@@ -2,7 +2,7 @@
 
 ## In v0.6.2 erledigt
 
-## In v0.6.5 erledigt
+## In v0.6.6 erledigt
 
 - Dirty-State-Bug behoben: Beim normalen Speichern/Importieren keine falsche „Website verlassen?“-Warnung mehr.
 - Hauptsuche etwas schmaler; „Nur wichtige“ bleibt vollständig im Filterraster und ist sauber ausgerichtet.

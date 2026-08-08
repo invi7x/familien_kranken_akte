@@ -401,3 +401,15 @@
   .filter-search,.important-filter{grid-column:auto}
   .file-picker{align-items:flex-start}
 }
+
+/* v0.6.6 bugfix / mobile polish */
+.mobile-sort-actions{display:none;gap:.2rem;align-items:center}
+.sort-step{width:2rem;height:2rem;border:1px solid var(--border);border-radius:.55rem;background:#fff;color:var(--accent);font-weight:800;cursor:pointer}
+.history-actions{display:flex;gap:.35rem;align-items:center}
+.history-actions form{margin:0}
+@media(max-width:720px){
+  .mobile-sort-actions{display:flex}
+  .admin-sort-hint{font-size:.86rem}
+  .drag-handle{display:none}
+  .admin-person{grid-template-columns:minmax(0,1fr) auto auto!important}
+}

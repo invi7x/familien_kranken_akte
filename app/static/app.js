@@ -33,9 +33,24 @@ function modalHasUnsavedChanges(modal) {
 
 function closeModal(modal, { force = false } = {}) {
   if (!modal?.open) return true;
-  if (!force && modalHasUnsavedChanges(modal) && !confirm("Ungespeicherte Änderungen verwerfen?")) return false;
+  if (!force && modalHasUnsavedChanges(modal)) return false;
   modal.close();
   return true;
+}
+
+function requestModalClose(modal, onClosed = null) {
+  if (!modal?.open) return;
+  if (!modalHasUnsavedChanges(modal)) {
+    modal.close();
+    onClosed?.();
+    return;
+  }
+  requestConfirmation(
+    "Ungespeicherte Änderungen wirklich verwerfen?",
+    () => { modal.close(); onClosed?.(); },
+    "Änderungen verwerfen?",
+    { okText: "Ja, verwerfen", cancelText: "Nein, weiter bearbeiten", danger: true }
+  );
 }
 
 function openModal(id) {
@@ -58,10 +73,9 @@ document.querySelectorAll("[data-close-modal]").forEach((button) => {
   button.addEventListener("click", () => {
     const modal = button.closest("dialog");
     const isPeopleAdmin = modal?.id === "people-admin-modal";
-    if (!closeModal(modal)) return;
-    // Die Sortierung wird im Hintergrund gespeichert. Erst wenn der Nutzer die
-    // Personenverwaltung bewusst schließt, laden wir die Übersichten neu.
-    if (isPeopleAdmin && peopleOrderChanged) window.location.reload();
+    requestModalClose(modal, () => {
+      if (isPeopleAdmin && peopleOrderChanged) window.location.reload();
+    });
   });
 });
 
@@ -88,13 +102,15 @@ const confirmOk = document.getElementById("confirm-ok");
 const confirmCancel = document.getElementById("confirm-cancel");
 let pendingConfirmAction = null;
 
-function requestConfirmation(message, onConfirm, title = "Wirklich löschen?") {
+function requestConfirmation(message, onConfirm, title = "Wirklich löschen?", options = {}) {
   if (!confirmModal) {
     // Fallback nur für den unwahrscheinlichen Fall, dass das Dialog-Markup fehlt.
     if (window.confirm(message)) onConfirm();
     return;
   }
   pendingConfirmAction = onConfirm;
+  if (confirmOk) { confirmOk.textContent = options.okText || "Ja, löschen"; confirmOk.classList.toggle("danger", options.danger !== false); }
+  if (confirmCancel) confirmCancel.textContent = options.cancelText || "Nein, abbrechen";
   if (confirmTitle) confirmTitle.textContent = title;
   if (confirmMessage) confirmMessage.textContent = message || "Dieser Eintrag wird dauerhaft entfernt.";
   if (!confirmModal.open) confirmModal.showModal();
@@ -122,7 +138,19 @@ document.querySelectorAll("[data-confirm]").forEach((form) => {
       return;
     }
     event.preventDefault();
-    requestConfirmation(form.dataset.confirm, () => {
+    requestConfirmation(form.dataset.confirm, async () => {
+      if (form.hasAttribute("data-dialog-delete")) {
+        try {
+          const response = await fetch(form.action, { method: "POST", body: new FormData(form), headers: { "X-Requested-With": "fetch" } });
+          if (!response.ok) throw new Error("Löschen fehlgeschlagen.");
+          const item = form.closest(".manage-item, .history-item");
+          item?.remove();
+          return;
+        } catch (error) {
+          requestConfirmation(error.message || "Löschen fehlgeschlagen.", () => {}, "Fehler", { okText: "OK", cancelText: "Schließen", danger: false });
+          return;
+        }
+      }
       form.dataset.confirmed = "1";
       form.requestSubmit();
     }, form.dataset.confirmTitle || "Wirklich löschen?");
@@ -404,6 +432,21 @@ if (peopleSortList) {
       persistPeopleOrder();
     });
   });
+  peopleSortList.querySelectorAll(".sort-step").forEach((button) => {
+    button.addEventListener("click", () => {
+      const row = button.closest(".admin-person");
+      if (!row) return;
+      if (button.classList.contains("sort-up")) {
+        const prev = row.previousElementSibling;
+        if (prev?.matches(".admin-person")) peopleSortList.insertBefore(row, prev);
+      } else {
+        const next = row.nextElementSibling;
+        if (next?.matches(".admin-person")) peopleSortList.insertBefore(next, row);
+      }
+      persistPeopleOrder();
+    });
+  });
+
 }
 
 
@@ -412,11 +455,12 @@ if (peopleSortList) {
 const futureTimeline = document.getElementById("future-timeline");
 const futureToggle = document.getElementById("future-toggle");
 const futureItems = futureTimeline ? Array.from(futureTimeline.querySelectorAll(":scope > .timeline-item")) : [];
-if (futureTimeline?.dataset.collapseFuture === "1" && futureItems.length > 5) {
-  futureItems.slice(5).forEach((item) => { item.hidden = true; item.classList.add("future-extra"); });
+const futureExtraCount = Math.max(0, futureItems.length - 5);
+if (futureTimeline?.dataset.collapseFuture === "1" && futureExtraCount > 0) {
+  futureItems.slice(0, futureExtraCount).forEach((item) => { item.hidden = true; item.classList.add("future-extra"); });
 }
 futureToggle?.addEventListener("click", () => {
-  const extras = futureItems.slice(5);
+  const extras = futureItems.slice(0, futureExtraCount);
   const currentlyHidden = extras.some((item) => item.hidden);
   extras.forEach((item) => { item.hidden = !currentlyHidden; });
   futureToggle.textContent = currentlyHidden
