@@ -1,8 +1,8 @@
-# Stinkis’ Krankenakten – Version 0.6.6
+# Stinkis’ Krankenakten – Version 0.6.7
 
 Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 
-## Neu in Version 0.6.6
+## Neu in Version 0.6.7
 
 - Bugfix: Beim bewussten Speichern/Importieren erscheint keine irreführende Browser-Warnung „Website verlassen?“ mehr.
 - Filterbox nachpoliert: Hauptsuche etwas kompakter, **Nur wichtige** sauber im Raster und auf einheitlicher Feldhöhe.
@@ -21,7 +21,7 @@ Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 Vorher in der laufenden Version über **Sicherung** einen aktuellen JSON-Export erstellen.
 
 ```bash
-cd /docker/stinkis-krankenakten-v0.6.6
+cd /docker/stinkis-krankenakten-v0.6.7
 sudo docker compose -f compose-test.yaml up -d --build
 ```
 

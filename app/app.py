@@ -23,7 +23,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DB_PATH = DATA_DIR / "stinkis.db"
-APP_VERSION = "0.6.6"
+APP_VERSION = "0.6.7"
 SCHEMA_VERSION = 6
 MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024
 
@@ -365,13 +365,18 @@ def index():
                     ORDER BY e.start_date DESC, e.id DESC LIMIT ? OFFSET ?""",
                 [*params, today_iso, per_page, offset],
             ).fetchall()
-            future_events = db.execute(
-                f"""SELECT e.*, p.name AS person_name, p.profile_image AS person_profile_image
-                    FROM events e JOIN people p ON p.id=e.person_id
-                    WHERE {future_where_sql}
-                    ORDER BY e.start_date DESC, e.id DESC""",
-                [*params, today_iso],
-            ).fetchall()
+            # Im Mischbetrieb gehört die Zukunftsvorschau nur auf Seite 1.
+            # Dadurch startet Seite 2+ direkt mit dem paginierten bisherigen Verlauf.
+            if page == 1:
+                future_events = db.execute(
+                    f"""SELECT e.*, p.name AS person_name, p.profile_image AS person_profile_image
+                        FROM events e JOIN people p ON p.id=e.person_id
+                        WHERE {future_where_sql}
+                        ORDER BY e.start_date DESC, e.id DESC""",
+                    [*params, today_iso],
+                ).fetchall()
+            else:
+                future_events = []
 
         people_rows = db.execute("SELECT * FROM people ORDER BY sort_order, name, id").fetchall()
         people = []
@@ -599,8 +604,7 @@ def create_event():
                 form.get("attest_type", "").strip() if form["category"].strip() == "Krankheit" else "",
             ),
         )
-    flash("Eintrag wurde gespeichert.", "success")
-    return redirect(url_for("index"))
+    return _post_action_response("Eintrag wurde gespeichert.")
 
 
 @app.post("/events/<int:event_id>/edit")
@@ -642,8 +646,7 @@ def edit_event(event_id: int):
                 event_id,
             ),
         )
-    flash("Eintrag wurde aktualisiert.", "success")
-    return redirect(url_for("index"))
+    return _post_action_response("Eintrag wurde aktualisiert.")
 
 
 @app.post("/events/<int:event_id>/delete")
@@ -665,8 +668,7 @@ def create_allergy():
             (form["person_id"], form["name"].strip(), form.get("reaction", "").strip(),
              form.get("notes", "").strip(), form.get("start_date", "").strip() or None),
         )
-    flash("Allergie oder Unverträglichkeit wurde gespeichert.", "success")
-    return redirect(url_for("index"))
+    return _post_action_response("Allergie oder Unverträglichkeit wurde gespeichert.")
 
 
 @app.post("/allergies/<int:allergy_id>/edit")
@@ -693,16 +695,14 @@ def edit_allergy(allergy_id: int):
              form.get("notes", "").strip(), start_date, end_date,
              form.get("resolved_note", "").strip() if resolved else "", allergy_id),
         )
-    flash("Allergie oder Unverträglichkeit wurde aktualisiert.", "success")
-    return redirect(url_for("index"))
+    return _post_action_response("Allergie oder Unverträglichkeit wurde aktualisiert.")
 
 
 @app.post("/allergies/<int:allergy_id>/delete")
 def delete_allergy(allergy_id: int):
     with get_db() as db:
         db.execute("DELETE FROM allergies WHERE id = ?", (allergy_id,))
-    flash("Eintrag wurde gelöscht.", "success")
-    return redirect(url_for("index"))
+    return _post_action_response("Allergie oder Unverträglichkeit wurde gelöscht.")
 
 
 @app.get("/export")

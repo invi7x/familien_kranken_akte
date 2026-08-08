@@ -213,7 +213,9 @@ const editForm = document.getElementById("edit-event-form");
 const deleteBtn = document.getElementById("delete-event-btn");
 const editCategory = document.getElementById("edit-category");
 const editMedicationFields = document.getElementById("edit-medication-fields");
-editCategory?.addEventListener("change", () => syncMedicationFields(editCategory, editMedicationFields));
+const editEventTitleLabel = document.getElementById("edit-event-title-label");
+const editEventTitle = document.getElementById("edit-title");
+editCategory?.addEventListener("change", () => syncMedicationFields(editCategory, editMedicationFields, editEventTitleLabel, editEventTitle));
 
 document.querySelectorAll("[data-edit-event]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -228,7 +230,7 @@ document.querySelectorAll("[data-edit-event]").forEach((button) => {
     document.getElementById("edit-medication-dosage").value = button.dataset.medicationDosage || "";
     document.getElementById("edit-medication-reason").value = button.dataset.medicationReason || "";
     document.getElementById("edit-medication-intolerance").checked = button.dataset.medicationIntolerance === "1";
-    syncMedicationFields(editCategory, editMedicationFields);
+    syncMedicationFields(editCategory, editMedicationFields, editEventTitleLabel, editEventTitle);
     editForm.action = `/events/${button.dataset.id}/edit`;
     deleteBtn.dataset.eventId = button.dataset.id;
     closeModal(button.closest("dialog"), { force: true });
@@ -240,6 +242,10 @@ deleteBtn?.addEventListener("click", () => {
   const eventId = deleteBtn.dataset.eventId;
   if (!eventId) return;
   requestConfirmation("Eintrag wirklich löschen? Dieser Eintrag wird dauerhaft entfernt.", () => {
+    // Bewusst bestätigtes Löschen ist kein ungespeicherter Datenverlust.
+    // form.submit() feuert kein submit-Event, deshalb den Schutz hier explizit deaktivieren.
+    formSubmissionInProgress = true;
+    if (editModal) modalFormSnapshots.set(editModal, snapshotForm(editForm));
     const form = document.createElement("form");
     form.method = "post";
     form.action = `/events/${eventId}/delete`;

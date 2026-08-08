@@ -413,3 +413,8 @@
   .drag-handle{display:none}
   .admin-person{grid-template-columns:minmax(0,1fr) auto auto!important}
 }
+
+
+/* v0.6.7 – letzte Formular-/Pagination-Politur */
+.allergy-save-actions{margin-top:1.65rem;padding-bottom:.35rem}
+@media(max-width:620px){.allergy-save-actions{margin-top:1.5rem;padding-bottom:.3rem}}
