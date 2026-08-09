@@ -10,6 +10,7 @@ import sqlite3
 from collections import defaultdict
 from datetime import date
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from typing import Any
 
 from flask import Flask, Response, flash, redirect, render_template, request, url_for
@@ -23,8 +24,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DB_PATH = DATA_DIR / "stinkis.db"
-APP_VERSION = "0.6.8"
-SCHEMA_VERSION = 6
+APP_VERSION = "0.7.0"
+SCHEMA_VERSION = 7
 MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024
 
 app = Flask(__name__)
@@ -63,6 +64,15 @@ def init_db() -> None:
                 profile_image TEXT DEFAULT '',
                 sort_order INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS treatment_cases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                person_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                notes TEXT DEFAULT '',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
             );
 
             CREATE TABLE IF NOT EXISTS events (
@@ -125,6 +135,7 @@ def init_db() -> None:
         _add_column(db, "events", "sick_to TEXT")
         _add_column(db, "events", "has_attest INTEGER NOT NULL DEFAULT 0")
         _add_column(db, "events", "attest_type TEXT DEFAULT ''")
+        _add_column(db, "events", "case_id INTEGER")
         _add_column(db, "allergies", "start_date TEXT")
         _add_column(db, "allergies", "end_date TEXT")
         _add_column(db, "allergies", "resolved_note TEXT DEFAULT ''")
@@ -226,6 +237,19 @@ def _age_from_birth_date(value: str | None, today_value: date | None = None) -> 
     return today_value.year - born.year - ((today_value.month, today_value.day) < (born.month, born.day))
 
 
+def _age_phrase_for_event(birth_date_value: str | None, event_date_value: str | None) -> str:
+    if not birth_date_value or not event_date_value:
+        return ""
+    try:
+        event_day = date.fromisoformat(event_date_value)
+    except (TypeError, ValueError):
+        return ""
+    age = _age_from_birth_date(birth_date_value, event_day)
+    if age is None:
+        return ""
+    return f"im Alter von {age} {'Jahr' if age == 1 else 'Jahren'}"
+
+
 GERMAN_MONTHS = {
     1: "Januar", 2: "Februar", 3: "März", 4: "April", 5: "Mai", 6: "Juni",
     7: "Juli", 8: "August", 9: "September", 10: "Oktober", 11: "November", 12: "Dezember",
@@ -259,6 +283,7 @@ def index():
         status_filter = ""
     date_from = request.args.get("date_from", "").strip()
     date_to = request.args.get("date_to", "").strip()
+    followup_case_id = request.args.get("followup_case_id", "").strip()
 
     try:
         per_page = int(request.args.get("per_page", "20"))
@@ -300,9 +325,13 @@ def index():
                     WHERE a.person_id = e.person_id
                       AND (a.name LIKE ? OR a.reaction LIKE ? OR a.notes LIKE ?)
                 )
+                OR EXISTS (
+                    SELECT 1 FROM treatment_cases tc
+                    WHERE tc.id = e.case_id AND tc.title LIKE ?
+                )
             )"""
         )
-        params.extend([like] * 9)
+        params.extend([like] * 10)
 
     # Dieselbe Statuslogik wie die Tags der Timeline.
     if status_filter == "planned":
@@ -349,16 +378,20 @@ def index():
         if planned_only:
             events = []
             future_events = db.execute(
-                f"""SELECT e.*, p.name AS person_name, p.profile_image AS person_profile_image
+                f"""SELECT e.*, p.name AS person_name, p.profile_image AS person_profile_image, p.birth_date AS person_birth_date,
+                           c.title AS case_title
                     FROM events e JOIN people p ON p.id=e.person_id
+                    LEFT JOIN treatment_cases c ON c.id=e.case_id
                     WHERE {future_where_sql}
                     ORDER BY e.start_date DESC, e.id DESC LIMIT ? OFFSET ?""",
                 [*params, today_iso, per_page, offset],
             ).fetchall()
         else:
             events = db.execute(
-                f"""SELECT e.*, p.name AS person_name, p.profile_image AS person_profile_image
+                f"""SELECT e.*, p.name AS person_name, p.profile_image AS person_profile_image, p.birth_date AS person_birth_date,
+                           c.title AS case_title
                     FROM events e JOIN people p ON p.id=e.person_id
+                    LEFT JOIN treatment_cases c ON c.id=e.case_id
                     WHERE {history_where_sql}
                     ORDER BY e.start_date DESC, e.id DESC LIMIT ? OFFSET ?""",
                 [*params, today_iso, per_page, offset],
@@ -367,14 +400,21 @@ def index():
             # Dadurch startet Seite 2+ direkt mit dem paginierten bisherigen Verlauf.
             if page == 1:
                 future_events = db.execute(
-                    f"""SELECT e.*, p.name AS person_name, p.profile_image AS person_profile_image
+                    f"""SELECT e.*, p.name AS person_name, p.profile_image AS person_profile_image, p.birth_date AS person_birth_date,
+                               c.title AS case_title
                         FROM events e JOIN people p ON p.id=e.person_id
+                        LEFT JOIN treatment_cases c ON c.id=e.case_id
                         WHERE {future_where_sql}
                         ORDER BY e.start_date DESC, e.id DESC""",
                     [*params, today_iso],
                 ).fetchall()
             else:
                 future_events = []
+
+        events = [dict(row) for row in events]
+        future_events = [dict(row) for row in future_events]
+        for item in [*events, *future_events]:
+            item["event_age_phrase"] = _age_phrase_for_event(item.get("person_birth_date"), item.get("start_date"))
 
         people_rows = db.execute("SELECT * FROM people ORDER BY sort_order, name, id").fetchall()
         people = []
@@ -400,7 +440,7 @@ def index():
             med_person_where = " AND e.person_id = ?"
             med_params.append(person_id)
         medications = db.execute(
-            f"""SELECT e.id, e.person_id, e.title AS name, e.medication_dosage AS dosage,
+            f"""SELECT e.id, e.person_id, e.case_id, e.title AS name, e.medication_dosage AS dosage,
                        e.medication_reason AS reason, e.start_date, e.end_date,
                        e.medication_intolerance AS intolerance, e.notes, e.document_url,
                        e.is_important, p.name AS person_name, p.profile_image, p.gender, p.sort_order
@@ -408,6 +448,30 @@ def index():
                 WHERE e.category='Medikament' {med_person_where}
                 ORDER BY p.sort_order, p.name, e.start_date DESC, e.title""", med_params
         ).fetchall()
+
+        case_rows = [dict(row) for row in db.execute(
+            """SELECT c.*, p.name AS person_name, p.sort_order
+               FROM treatment_cases c JOIN people p ON p.id=c.person_id
+               ORDER BY p.sort_order, p.name, c.created_at DESC, c.id DESC"""
+        ).fetchall()]
+        case_event_rows = [dict(row) for row in db.execute(
+            """SELECT e.id, e.case_id, e.person_id, e.category, e.title, e.start_date, e.end_date,
+                      e.medication_dosage, e.medication_reason
+               FROM events e WHERE e.case_id IS NOT NULL
+               ORDER BY e.case_id, e.start_date, e.id"""
+        ).fetchall()]
+        events_by_case: dict[int, list[dict[str, Any]]] = defaultdict(list)
+        for case_event in case_event_rows:
+            events_by_case[int(case_event["case_id"])].append(case_event)
+        for case_row in case_rows:
+            case_row["items"] = events_by_case.get(int(case_row["id"]), [])
+        followup_case = None
+        if followup_case_id:
+            try:
+                wanted_case_id = int(followup_case_id)
+                followup_case = next((item for item in case_rows if int(item["id"]) == wanted_case_id), None)
+            except ValueError:
+                followup_case = None
 
     active_allergies = [a for a in allergies if not a["end_date"] or a["end_date"] > today_iso]
     ended_allergies = [a for a in allergies if a["end_date"] and a["end_date"] <= today_iso]
@@ -428,6 +492,8 @@ def index():
         allergy_history_groups=_group_by_person(ended_allergies),
         medication_groups=_group_by_person(active_medications),
         medication_history_groups=_group_by_person(ended_medications),
+        treatment_cases=case_rows,
+        followup_case=followup_case,
         q=q,
         selected_person_id=person_id,
         selected_category=category,
@@ -463,7 +529,11 @@ def _profile_image_from_upload() -> str | None:
 @app.post("/people")
 def create_person():
     name = request.form.get("name", "").strip()
-    birth_date = request.form.get("birth_date", "").strip() or None
+    try:
+        birth_date = _validated_date(request.form.get("birth_date"))
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("index"))
     notes = request.form.get("notes", "").strip()
     gender = request.form.get("gender", "").strip()
     if gender not in {"", "male", "female"}:
@@ -509,7 +579,11 @@ def reorder_people():
 
 @app.post("/people/<int:person_id>/edit")
 def edit_person(person_id: int):
-    birth_date = request.form.get("birth_date", "").strip() or None
+    try:
+        birth_date = _validated_date(request.form.get("birth_date"))
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("index"))
     notes = request.form.get("notes", "").strip()
     gender = request.form.get("gender", "").strip()
     if gender not in {"", "male", "female"}:
@@ -561,6 +635,53 @@ def _valid_date_range(start_date: str, end_date: str | None) -> bool:
     return not end_date or end_date >= start_date
 
 
+def _validated_date(raw: str | None, *, required: bool = False) -> str | None:
+    value = (raw or "").strip()
+    if not value:
+        if required:
+            raise ValueError("Bitte ein vollständiges Datum eingeben.")
+        return None
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError("Bitte ein gültiges Datum eingeben.") from exc
+    return parsed.isoformat()
+
+
+def _resolve_case_id(db: sqlite3.Connection, person_id: int, raw_case_id: str | None, new_case_title: str | None) -> int | None:
+    new_title = (new_case_title or "").strip()
+    if new_title:
+        cursor = db.execute(
+            "INSERT INTO treatment_cases (person_id, title) VALUES (?, ?)",
+            (person_id, new_title),
+        )
+        return int(cursor.lastrowid)
+    raw = (raw_case_id or "").strip()
+    if not raw or raw == "__new__":
+        return None
+    try:
+        case_id = int(raw)
+    except ValueError:
+        return None
+    row = db.execute(
+        "SELECT id FROM treatment_cases WHERE id=? AND person_id=?",
+        (case_id, person_id),
+    ).fetchone()
+    return int(row["id"]) if row else None
+
+
+def _redirect_with_query(**updates):
+    target = request.referrer or url_for("index")
+    parts = urlsplit(target)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    for key, value in updates.items():
+        if value in (None, ""):
+            query.pop(key, None)
+        else:
+            query[key] = str(value)
+    return redirect(urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment)))
+
+
 @app.post("/events")
 def create_event():
     form = request.form
@@ -568,27 +689,37 @@ def create_event():
     if any(not form.get(key, "").strip() for key in required):
         flash("Person, Kategorie, Titel und Beginn sind Pflichtfelder.", "error")
         return redirect(url_for("index"))
-    start_date = form["start_date"].strip()
-    end_date = form.get("end_date", "").strip() or None
+    try:
+        start_date = _validated_date(form.get("start_date"), required=True)
+        end_date = _validated_date(form.get("end_date"))
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("index"))
     if not _valid_date_range(start_date, end_date):
         flash("Das Enddatum darf nicht vor dem Beginn liegen.", "error")
         return redirect(url_for("index"))
-    sick_from = form.get("sick_from", "").strip()
-    sick_to = form.get("sick_to", "").strip()
+    try:
+        sick_from = _validated_date(form.get("sick_from")) or ""
+        sick_to = _validated_date(form.get("sick_to")) or ""
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("index"))
     if form.get("category", "").strip() == "Krankheit" and sick_from and sick_to and sick_to < sick_from:
         flash("Das Ende der Krankschreibung darf nicht vor ihrem Beginn liegen.", "error")
         return redirect(url_for("index"))
     with get_db() as db:
+        person_id = int(form["person_id"])
+        case_id = _resolve_case_id(db, person_id, form.get("case_id"), form.get("new_case_title"))
         db.execute(
             """
             INSERT INTO events (
                 person_id, category, title, start_date, end_date, notes,
                 document_url, is_important, medication_dosage, medication_reason,
-                medication_intolerance, is_sick_note, sick_from, sick_to, has_attest, attest_type
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                medication_intolerance, is_sick_note, sick_from, sick_to, has_attest, attest_type, case_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                form["person_id"], form["category"].strip(), form["title"].strip(),
+                person_id, form["category"].strip(), form["title"].strip(),
                 start_date, end_date,
                 form.get("notes", "").strip(), form.get("document_url", "").strip(),
                 1 if form.get("is_important") == "on" else 0,
@@ -596,40 +727,54 @@ def create_event():
                 form.get("medication_reason", "").strip() if form["category"].strip() == "Medikament" else "",
                 1 if form["category"].strip() == "Medikament" and form.get("medication_intolerance") == "on" else 0,
                 1 if form["category"].strip() == "Krankheit" and form.get("is_sick_note") == "on" else 0,
-                form.get("sick_from", "").strip() or None if form["category"].strip() == "Krankheit" else None,
-                form.get("sick_to", "").strip() or None if form["category"].strip() == "Krankheit" else None,
+                sick_from or None if form["category"].strip() == "Krankheit" else None,
+                sick_to or None if form["category"].strip() == "Krankheit" else None,
                 1 if form["category"].strip() == "Krankheit" and form.get("has_attest") == "on" else 0,
                 form.get("attest_type", "").strip() if form["category"].strip() == "Krankheit" else "",
+                case_id,
             ),
         )
+    if case_id:
+        flash("Eintrag wurde gespeichert und dem Vorgang zugeordnet.", "success")
+        return _redirect_with_query(followup_case_id=case_id)
     return _post_action_response("Eintrag wurde gespeichert.")
 
 
 @app.post("/events/<int:event_id>/edit")
 def edit_event(event_id: int):
     form = request.form
-    start_date = form.get("start_date", "").strip()
-    end_date = form.get("end_date", "").strip() or None
+    try:
+        start_date = _validated_date(form.get("start_date"), required=True)
+        end_date = _validated_date(form.get("end_date"))
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("index"))
     if not start_date or not _valid_date_range(start_date, end_date):
         flash("Bitte einen gültigen Zeitraum eingeben; das Ende darf nicht vor dem Beginn liegen.", "error")
         return redirect(url_for("index"))
-    sick_from = form.get("sick_from", "").strip()
-    sick_to = form.get("sick_to", "").strip()
+    try:
+        sick_from = _validated_date(form.get("sick_from")) or ""
+        sick_to = _validated_date(form.get("sick_to")) or ""
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("index"))
     if form.get("category", "").strip() == "Krankheit" and sick_from and sick_to and sick_to < sick_from:
         flash("Das Ende der Krankschreibung darf nicht vor ihrem Beginn liegen.", "error")
         return redirect(url_for("index"))
     with get_db() as db:
+        person_id = int(form["person_id"])
+        case_id = _resolve_case_id(db, person_id, form.get("case_id"), form.get("new_case_title"))
         db.execute(
             """
             UPDATE events
             SET person_id=?, category=?, title=?, start_date=?, end_date=?, notes=?,
                 document_url=?, is_important=?, medication_dosage=?, medication_reason=?,
                 medication_intolerance=?, is_sick_note=?, sick_from=?, sick_to=?,
-                has_attest=?, attest_type=?, updated_at=CURRENT_TIMESTAMP
+                has_attest=?, attest_type=?, case_id=?, updated_at=CURRENT_TIMESTAMP
             WHERE id=?
             """,
             (
-                form["person_id"], form["category"].strip(), form["title"].strip(),
+                person_id, form["category"].strip(), form["title"].strip(),
                 start_date, end_date,
                 form.get("notes", "").strip(), form.get("document_url", "").strip(),
                 1 if form.get("is_important") == "on" else 0,
@@ -637,10 +782,11 @@ def edit_event(event_id: int):
                 form.get("medication_reason", "").strip() if form["category"].strip() == "Medikament" else "",
                 1 if form["category"].strip() == "Medikament" and form.get("medication_intolerance") == "on" else 0,
                 1 if form["category"].strip() == "Krankheit" and form.get("is_sick_note") == "on" else 0,
-                form.get("sick_from", "").strip() or None if form["category"].strip() == "Krankheit" else None,
-                form.get("sick_to", "").strip() or None if form["category"].strip() == "Krankheit" else None,
+                sick_from or None if form["category"].strip() == "Krankheit" else None,
+                sick_to or None if form["category"].strip() == "Krankheit" else None,
                 1 if form["category"].strip() == "Krankheit" and form.get("has_attest") == "on" else 0,
                 form.get("attest_type", "").strip() if form["category"].strip() == "Krankheit" else "",
+                case_id,
                 event_id,
             ),
         )
@@ -660,11 +806,16 @@ def create_allergy():
     if not form.get("person_id") or not form.get("name", "").strip():
         flash("Person und Allergie/Unverträglichkeit sind Pflichtfelder.", "error")
         return redirect(url_for("index"))
+    try:
+        allergy_start_date = _validated_date(form.get("start_date"))
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("index"))
     with get_db() as db:
         db.execute(
             "INSERT INTO allergies (person_id, name, reaction, notes, start_date) VALUES (?, ?, ?, ?, ?)",
             (form["person_id"], form["name"].strip(), form.get("reaction", "").strip(),
-             form.get("notes", "").strip(), form.get("start_date", "").strip() or None),
+             form.get("notes", "").strip(), allergy_start_date),
         )
     return _post_action_response("Allergie oder Unverträglichkeit wurde gespeichert.")
 
@@ -676,8 +827,12 @@ def edit_allergy(allergy_id: int):
         flash("Person und Allergie/Unverträglichkeit sind Pflichtfelder.", "error")
         return redirect(url_for("index"))
     resolved = form.get("resolved") == "on"
-    start_date = form.get("start_date", "").strip() or None
-    end_date = form.get("end_date", "").strip() or None
+    try:
+        start_date = _validated_date(form.get("start_date"))
+        end_date = _validated_date(form.get("end_date"))
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("index"))
     if resolved and not end_date:
         end_date = date.today().isoformat()
     if not resolved:
@@ -711,6 +866,7 @@ def export_data():
             "appVersion": APP_VERSION,
             "exportedAt": date.today().isoformat(),
             "people": [dict(row) for row in db.execute("SELECT * FROM people").fetchall()],
+            "treatmentCases": [dict(row) for row in db.execute("SELECT * FROM treatment_cases").fetchall()],
             "events": [dict(row) for row in db.execute("SELECT * FROM events").fetchall()],
             "allergies": [dict(row) for row in db.execute("SELECT * FROM allergies").fetchall()],
             # Kompatibilitätsabbild für ältere App-Stände. Ab Schema 3 sind
@@ -749,16 +905,18 @@ def import_data():
         if schema_version > SCHEMA_VERSION:
             raise ValueError("Diese Sicherung stammt aus einer neueren App-Version.")
         people = payload.get("people", [])
+        treatment_cases = payload.get("treatmentCases", [])
         events = payload.get("events", [])
         allergies = payload.get("allergies", [])
         medications = payload.get("medications", [])
-        if not all(isinstance(items, list) for items in (people, events, allergies, medications)):
+        if not all(isinstance(items, list) for items in (people, treatment_cases, events, allergies, medications)):
             raise ValueError("Die Sicherung enthält ungültige Datenlisten.")
 
         with get_db() as db:
             db.execute("DELETE FROM medications")
             db.execute("DELETE FROM allergies")
             db.execute("DELETE FROM events")
+            db.execute("DELETE FROM treatment_cases")
             db.execute("DELETE FROM people")
 
             for row in people:
@@ -772,8 +930,14 @@ def import_data():
             if imported_people and all(int(row["sort_order"] or 0) == 0 for row in imported_people):
                 for position, row in enumerate(imported_people, start=1):
                     db.execute("UPDATE people SET sort_order=? WHERE id=?", (position * 10, row["id"]))
+            for row in treatment_cases:
+                item = _clean_record(row, ["id", "person_id", "title", "notes", "created_at"])
+                if not item.get("person_id") or not item.get("title"):
+                    continue
+                cols = list(item)
+                db.execute(f"INSERT INTO treatment_cases ({','.join(cols)}) VALUES ({','.join('?' for _ in cols)})", [item[c] for c in cols])
             for row in events:
-                item = _clean_record(row, ["id", "person_id", "category", "title", "start_date", "end_date", "notes", "document_url", "is_important", "medication_dosage", "medication_reason", "medication_intolerance", "legacy_medication_id", "is_sick_note", "sick_from", "sick_to", "has_attest", "attest_type", "created_at", "updated_at"])
+                item = _clean_record(row, ["id", "person_id", "category", "title", "start_date", "end_date", "notes", "document_url", "is_important", "medication_dosage", "medication_reason", "medication_intolerance", "legacy_medication_id", "is_sick_note", "sick_from", "sick_to", "has_attest", "attest_type", "case_id", "created_at", "updated_at"])
                 item.setdefault("is_important", 0)
                 cols = list(item)
                 db.execute(f"INSERT INTO events ({','.join(cols)}) VALUES ({','.join('?' for _ in cols)})", [item[c] for c in cols])
@@ -846,7 +1010,9 @@ def _report_data():
         if not person:
             return None
         events = db.execute(
-            f"SELECT e.* FROM events e WHERE {' AND '.join(where)} ORDER BY e.start_date ASC, e.id ASC", params
+            f"""SELECT e.*, c.title AS case_title FROM events e
+                LEFT JOIN treatment_cases c ON c.id=e.case_id
+                WHERE {' AND '.join(where)} ORDER BY e.start_date ASC, e.id ASC""", params
         ).fetchall()
         allergy_where = ["person_id = ?"]
         allergy_params: list[Any] = [person_id]
@@ -873,7 +1039,7 @@ def report_csv():
 
     stream = io.StringIO()
     writer = csv.writer(stream, delimiter=';')
-    writer.writerow(["Datentyp", "Person", "Kategorie", "Titel", "Beginn", "Ende",
+    writer.writerow(["Datentyp", "Person", "Kategorie", "Titel", "Vorgang", "Beginn", "Ende",
                      "Details", "Notizen", "Wichtig", "Externe URL / Link"])
     for event in events:
         details = []
@@ -889,7 +1055,7 @@ def report_csv():
                 details.append(f"Krankgeschrieben: {event['sick_from'] or event['start_date']} bis {event['sick_to'] or event['end_date'] or event['start_date']}")
             if event["has_attest"]:
                 details.append("Attest: " + (event["attest_type"] or "vorhanden"))
-        writer.writerow(["Timeline", person["name"], event["category"], event["title"],
+        writer.writerow(["Timeline", person["name"], event["category"], event["title"], event["case_title"] or "",
                          event["start_date"], event["end_date"] or "", " | ".join(details),
                          event["notes"] or "", "ja" if event["is_important"] else "nein",
                          event["document_url"] or ""])
@@ -897,7 +1063,7 @@ def report_csv():
         details = allergy["reaction"] or ""
         if allergy["resolved_note"]:
             details = (details + " | " if details else "") + "Abschluss: " + allergy["resolved_note"]
-        writer.writerow(["Allergie", person["name"], "Allergie/Unverträglichkeit", allergy["name"],
+        writer.writerow(["Allergie", person["name"], "Allergie/Unverträglichkeit", allergy["name"], "",
                          allergy["start_date"] or "", allergy["end_date"] or "", details,
                          allergy["notes"] or "", "", ""])
 

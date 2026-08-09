@@ -423,3 +423,18 @@
 .allergy-save-actions{margin-top:2rem;padding-bottom:.75rem}
 .history-empty[hidden]{display:none}
 @media(max-width:620px){.allergy-save-actions{margin-top:1.8rem;padding-bottom:.65rem}}
+
+
+/* v0.6.9 – Timeline-Alter und kompaktere Notizdarstellung */
+.event-age{font-weight:500;color:var(--muted)}
+.stack-note-inline{display:block;white-space:normal;line-height:1.45;margin-top:.2rem;color:var(--muted)}
+.stack-note-inline strong,.stack-note-inline span{display:inline;color:inherit}
+
+/* v0.7.0 – Vorgänge, kompakter Mobile-Header und Medikamenten-Polish */
+.case-fields{border:1px solid #cbd5e1;background:#f8fafc;border-radius:.85rem;padding:.9rem}.case-fields-head{font-weight:800;color:#334155;margin-bottom:.65rem}.case-fields .optional{font-weight:500;color:var(--muted)}
+.case-badge{display:inline-flex;align-items:center;gap:.35rem;margin-top:.65rem;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:999px;padding:.28rem .6rem;font-size:.8rem;font-weight:700;cursor:pointer}.case-badge:hover{border-color:#93c5fd;background:#eff6ff;color:#1d4ed8}
+.case-followup-panel{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:0 0 1.25rem;padding:.85rem 1rem;border:1px solid #bfdbfe;border-radius:1rem;background:linear-gradient(135deg,#eff6ff,#fff);box-shadow:var(--shadow)}.case-followup-panel>div:first-child{display:grid;gap:.15rem}.case-followup-panel span{color:var(--muted);font-size:.9rem}.case-followup-actions{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}.case-followup-done{padding:.5rem;color:var(--muted);font-weight:700;text-decoration:none}
+.case-event-list{display:grid;gap:.55rem;margin:.4rem 0 1rem}.case-event-row{display:flex;gap:.65rem;align-items:flex-start;padding:.65rem .7rem;border:1px solid var(--border);border-radius:.75rem;background:#f8fafc}.case-event-row strong,.case-event-row small{display:block}.case-event-row small{color:var(--muted);margin-top:.15rem}.case-event-icon{font-size:1.2rem}.case-add-actions{display:flex;gap:.55rem;flex-wrap:wrap}.case-person-label{margin:.15rem 0 0}
+.medication-summary{display:grid!important;gap:.18rem;padding:.4rem 0!important}.medication-summary .med-name{font-size:1.02rem;line-height:1.25}.medication-summary .med-dose{font-size:.95rem;color:#52647a!important;margin:0!important}.med-meta{display:grid;gap:.1rem;margin-top:.18rem}.med-meta small{display:block!important;margin:0!important;line-height:1.4;color:#64748b!important}.med-note{display:block!important;margin-top:.3rem!important;line-height:1.45;color:#64748b!important}.med-note strong,.med-meta strong{display:inline!important;color:#52647a}.medication-summary .warning{margin-top:.3rem}
+.new-event-header-btn{gap:.35rem}.new-event-plus{font-weight:900;font-size:1.05rem}
+@media(max-width:620px){.new-event-header-btn{width:44px!important;height:44px!important;min-width:44px;padding:0!important;border-radius:50%!important;flex:0 0 44px!important}.new-event-label{display:none}.new-event-plus{font-size:1.5rem;line-height:1}.case-followup-panel{align-items:flex-start;flex-direction:column}.case-followup-actions{width:100%}.case-followup-actions .btn{flex:1}.case-add-actions .btn{flex:1}.case-fields{padding:.75rem}}

@@ -1,58 +1,28 @@
-# Stinkis’ Krankenakten – Version 0.6.8
+# Stinkis’ Krankenakten – Version 0.7.0
 
 Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 
-## Neu in Version 0.6.8
+## Neu in Version 0.7.0
 
-- Statuslogik korrigiert: Einträge ohne Enddatum bleiben nach ihrem Beginn **Laufend**. **Abgeschlossen** ist nur noch möglich, wenn ein echtes Enddatum in der Vergangenheit vorliegt.
-- Statusfilter verwendet exakt dieselbe Logik wie die Timeline-Tags.
-- Löschen in Medikamenten-/Allergie-Verwaltungsdialogen synchronisiert jetzt die sichtbaren Dashboard-Boxen sofort, ohne Seitenreload.
-- Leere Personen-Gruppen verschwinden nach dem Löschen des letzten zugehörigen Eintrags automatisch.
-- Die Medikationshistorie und abgeschlossene Allergien zeigen keine verwaisten Personennamen mehr; bei komplett leerer Historie erscheint ein sauberer Leerzustand.
-- Notizen in den rechten Übersichtsboxen und Historien werden explizit mit **„Notiz:“** gekennzeichnet.
-- Der Speichern-Button im Allergie-/Unverträglichkeitsdialog erhält nochmals mehr Abstand zum Formularende.
-- Schema-Version bleibt **6**; bestehende JSON-Sicherungen aus v0.6.x sind direkt kompatibel.
+- Neuer optionaler **Behandlungsfall / Vorgang** verbindet zusammengehörige Timeline-Einträge.
+- Krankheit, Arztbesuch und Medikament behalten trotzdem jeweils ihren eigenen Zeitraum.
+- Beim Anlegen eines Eintrags kann ein bestehender Vorgang gewählt oder direkt ein neuer Vorgang angelegt werden.
+- Nach dem Speichern eines verknüpften Eintrags erscheint eine kompakte Folgeaktion: **+ Arztbesuch**, **+ Medikament** oder **+ weiterer Eintrag**.
+- Vorgangs-Badge in der Timeline öffnet eine Übersicht aller zugehörigen Einträge.
+- JSON-Export/-Import enthält die Vorgänge; Schema-Version jetzt 7.
+- CSV-Bericht erhält die zusätzliche Spalte **Vorgang**.
+- Medikamentenbox rechts typografisch aufgeräumt: Name, Dosierung, Grund, Zeitraum und Notiz sind klarer gegliedert.
+- Auf schmalen Mobil-Viewports wird **Neuer Eintrag** im Header als kompaktes rundes Plus dargestellt.
+- **Externe URL / Link** ist jetzt ein freies Textfeld und akzeptiert damit auch NAS-/Netzwerkpfade oder andere Referenzen.
+- Datumsfelder werden serverseitig strenger validiert; unvollständige oder ungültige Kalenderdaten werden abgewiesen.
 
 ## Parallel testen
 
-Vorher in der laufenden Version über **Sicherung** einen aktuellen JSON-Export erstellen.
-
 ```bash
-cd /docker/stinkis-krankenakten-v0.6.8
+cd /docker/stinkis-krankenakten-v0.7.0
 sudo docker compose -f compose-test.yaml up -d --build
 ```
 
-Aufruf:
+Aufruf: `http://SERVER-IP:8502`
 
-```text
-http://SERVER-IP:8497
-```
-
-Test-Volume:
-
-```text
-stinkis_v065_test_data
-```
-
-Damit bleibt die bisherige Installation unangetastet.
-
-## Installation als Hauptversion
-
-```bash
-cd /docker/stinkis-familienakte
-sudo docker compose up -d --build
-```
-
-Standardmäßig:
-
-```text
-http://SERVER-IP:8484
-```
-
-## Backup
-
-Die Daten liegen standardmäßig im Docker-Volume `stinkis_krankenakten_data`. Zusätzlich kann über **Sicherung** ein JSON-Export erzeugt und wieder importiert werden. Profilbilder und die benutzerdefinierte Personenreihenfolge sind Bestandteil des Exports.
-
-## Sicherheit
-
-Die App besitzt noch keine Anmeldung. Sie sollte nur im Heimnetz oder über einen abgesicherten VPN-Zugang erreichbar sein.
+Das Test-Volume heißt `stinkis_v070_test_data`.

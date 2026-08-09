@@ -516,3 +516,63 @@ document.addEventListener("submit", (event) => {
   const modal = event.target.closest?.("dialog");
   if (modal) modalFormSnapshots.set(modal, snapshotForm(event.target));
 });
+
+// v0.7.0 – Behandlungsfälle/Vorgänge verbinden zusammengehörige Timeline-Einträge.
+function syncCaseSelect(select, personSelect, newTitleWrap, newTitleInput) {
+  if (!select || !personSelect) return;
+  const personId = String(personSelect.value || "");
+  [...select.options].forEach((option) => {
+    if (!option.dataset.personId) return;
+    const matches = option.dataset.personId === personId;
+    option.hidden = !matches;
+    option.disabled = !matches;
+  });
+  const selected = select.selectedOptions?.[0];
+  if (selected?.dataset.personId && selected.dataset.personId !== personId) select.value = "";
+  const creatingNew = select.value === "__new__";
+  if (newTitleWrap) newTitleWrap.hidden = !creatingNew;
+  if (newTitleInput) {
+    newTitleInput.required = creatingNew;
+    if (!creatingNew) newTitleInput.value = "";
+  }
+}
+
+const newCaseSelect = document.getElementById("new-case-id");
+const newCaseTitleWrap = document.getElementById("new-case-title-wrap");
+const newCaseTitle = document.getElementById("new-case-title");
+newEventPerson?.addEventListener("change", () => syncCaseSelect(newCaseSelect, newEventPerson, newCaseTitleWrap, newCaseTitle));
+newCaseSelect?.addEventListener("change", () => syncCaseSelect(newCaseSelect, newEventPerson, newCaseTitleWrap, newCaseTitle));
+syncCaseSelect(newCaseSelect, newEventPerson, newCaseTitleWrap, newCaseTitle);
+
+const editCaseSelect = document.getElementById("edit-case-id");
+const editCaseTitleWrap = document.getElementById("edit-case-title-wrap");
+const editCaseTitle = document.getElementById("edit-case-title");
+const editPersonSelect = document.getElementById("edit-person-id");
+editPersonSelect?.addEventListener("change", () => syncCaseSelect(editCaseSelect, editPersonSelect, editCaseTitleWrap, editCaseTitle));
+editCaseSelect?.addEventListener("change", () => syncCaseSelect(editCaseSelect, editPersonSelect, editCaseTitleWrap, editCaseTitle));
+
+// Ergänzt den bestehenden Event-Bearbeiten-Handler um die Vorgangszuordnung.
+document.querySelectorAll("[data-edit-event]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (!editCaseSelect) return;
+    syncCaseSelect(editCaseSelect, editPersonSelect, editCaseTitleWrap, editCaseTitle);
+    editCaseSelect.value = button.dataset.caseId || "";
+    syncCaseSelect(editCaseSelect, editPersonSelect, editCaseTitleWrap, editCaseTitle);
+  });
+});
+
+function prepareRelatedEntry(button) {
+  closeModal(button.closest("dialog"), { force: true });
+  if (newEventPerson) newEventPerson.value = button.dataset.personId || newEventPerson.value;
+  if (newEventCategory && button.dataset.category) newEventCategory.value = button.dataset.category;
+  if (newCaseSelect) newCaseSelect.value = button.dataset.caseId || "";
+  syncMedicationFields(newEventCategory, newMedicationFields, newEventTitleLabel, newEventTitle);
+  syncIllnessFields(newEventCategory, newIllnessFields);
+  syncCaseSelect(newCaseSelect, newEventPerson, newCaseTitleWrap, newCaseTitle);
+  openModal("event-modal");
+  setTimeout(() => newEventTitle?.focus(), 0);
+}
+
+document.querySelectorAll("[data-related-entry]").forEach((button) => {
+  button.addEventListener("click", () => prepareRelatedEntry(button));
+});
