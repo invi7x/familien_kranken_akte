@@ -232,6 +232,22 @@ document.querySelectorAll("[data-new-medication]").forEach((button) => {
 });
 
 const newAllergyPerson = document.getElementById("new-allergy-person-id");
+
+// v0.7.2 – Allergien/Unverträglichkeiten sind auch über den zentralen
+// „Neuer Eintrag“-Dialog erreichbar. Die eigentliche Erfassung bleibt in der
+// spezialisierten Allergie-Maske, damit keine zweite Datenlogik entsteht.
+newEventCategory?.addEventListener("change", () => {
+  if (newEventCategory.value !== "__allergy__") return;
+  if (newAllergyPerson && newEventPerson) newAllergyPerson.value = newEventPerson.value;
+  const eventDialog = document.getElementById("event-modal");
+  closeModal(eventDialog, { force: true });
+  newEventCategory.value = "Krankheit";
+  syncMedicationFields(newEventCategory, newMedicationFields, newEventTitleLabel, newEventTitle);
+  syncIllnessFields(newEventCategory, newIllnessFields);
+  openModal("allergy-modal");
+  setTimeout(() => document.querySelector("#allergy-modal input[name='name']")?.focus(), 0);
+});
+
 document.querySelectorAll("[data-new-allergy]").forEach((button) => {
   button.addEventListener("click", () => {
     closeModal(button.closest("dialog"), { force: true });
@@ -635,6 +651,10 @@ document.querySelectorAll("[data-case-save]").forEach((button) => {
       option.textContent = input.value.trim() + suffix;
     });
     document.querySelectorAll(`[data-open-modal="case-modal-${caseId}"]`).forEach((badge) => { badge.textContent = `🔗 ${input.value.trim()}`; });
+    const inlineSelect = document.querySelector(`.case-inline-status-select[data-case-id="${caseId}"]`);
+    if (inlineSelect) inlineSelect.dataset.caseTitle = input.value.trim();
+    const caseHeading = document.querySelector(`#case-modal-${caseId} .modal-head h2`);
+    if (caseHeading) caseHeading.textContent = `🔗 ${input.value.trim()}`;
     button.textContent = "✓";
   });
 });
@@ -648,10 +668,69 @@ document.querySelectorAll(".case-status-select").forEach((select) => {
     const response = await fetch(`/cases/${caseId}/status`, { method: "POST", body, headers: { "X-Requested-With": "fetch" } });
     if (!response.ok) return;
     updateCaseAdminStatus(item, select.value);
-    document.querySelectorAll(`select[name="case_id"] option[value="${caseId}"]`).forEach((option) => {
-      option.dataset.caseStatus = select.value;
-      if (option.closest("#new-case-id") && select.value !== "active") option.remove();
-    });
+    const title = item.querySelector(".case-admin-title")?.value.trim() || "Vorgang";
+    const personId = document.querySelector(`.case-inline-status-select[data-case-id="${caseId}"]`)?.dataset.personId || "";
+    syncCaseStatusUi(caseId, select.value);
+    setCaseOptionState(caseId, personId, title, select.value);
+  });
+});
+
+function setCaseOptionState(caseId, personId, title, status) {
+  const editOption = editCaseSelect?.querySelector(`option[value="${caseId}"]`);
+  if (editOption) {
+    editOption.dataset.caseStatus = status;
+    editOption.dataset.personId = String(personId || editOption.dataset.personId || "");
+    editOption.textContent = title + (status === "active" ? "" : ` · ${status === "completed" ? "abgeschlossen" : "archiviert"}`);
+  }
+
+  const newOption = newCaseSelect?.querySelector(`option[value="${caseId}"]`);
+  if (status === "active") {
+    if (!newOption && newCaseSelect) {
+      const option = document.createElement("option");
+      option.value = String(caseId);
+      option.dataset.personId = String(personId || "");
+      option.textContent = title;
+      const newMarker = newCaseSelect.querySelector('option[value="__new__"]');
+      newCaseSelect.insertBefore(option, newMarker || null);
+    } else if (newOption) {
+      newOption.dataset.personId = String(personId || newOption.dataset.personId || "");
+      newOption.textContent = title;
+    }
+  } else {
+    newOption?.remove();
+  }
+
+  syncCaseSelect(newCaseSelect, newEventPerson, newCaseTitleWrap, newCaseTitle);
+  syncCaseSelect(editCaseSelect, editPersonSelect, editCaseTitleWrap, editCaseTitle);
+}
+
+function syncCaseStatusUi(caseId, status) {
+  const adminItem = document.querySelector(`[data-case-admin-id="${caseId}"]`);
+  if (adminItem) {
+    updateCaseAdminStatus(adminItem, status);
+    const adminSelect = adminItem.querySelector(".case-status-select");
+    if (adminSelect) adminSelect.value = status;
+  }
+  document.querySelectorAll(`.case-inline-status-select[data-case-id="${caseId}"]`).forEach((select) => {
+    select.value = status;
+  });
+  document.querySelectorAll(`[data-case-inline-chip="${caseId}"]`).forEach((chip) => {
+    chip.className = `case-status-chip case-status-${status}`;
+    chip.textContent = caseStatusLabel(status);
+  });
+}
+
+document.querySelectorAll(".case-inline-status-select").forEach((select) => {
+  select.addEventListener("change", async () => {
+    const caseId = select.dataset.caseId;
+    if (!caseId) return;
+    const body = new URLSearchParams({ status: select.value });
+    const response = await fetch(`/cases/${caseId}/status`, { method: "POST", body, headers: { "X-Requested-With": "fetch" } });
+    if (!response.ok) return;
+    const personId = select.dataset.personId || "";
+    const title = select.dataset.caseTitle || document.querySelector(`[data-case-admin-id="${caseId}"] .case-admin-title`)?.value.trim() || "Vorgang";
+    syncCaseStatusUi(caseId, select.value);
+    setCaseOptionState(caseId, personId, title, select.value);
   });
 });
 

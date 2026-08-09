@@ -1,8 +1,12 @@
-# Stinkis’ Krankenakten – Version 0.7.1
+# Stinkis’ Krankenakten – Version 0.7.2
 
 Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 
-## Neu in Version 0.7.1
+## Neu in Version 0.7.2
+
+- Der zentrale Dialog **„Neuer Eintrag“** bietet jetzt auch **„Allergie / Unverträglichkeit“** an und öffnet dafür automatisch die spezialisierte Allergie-Maske mit bereits gewählter Person.
+- Im geöffneten **Behandlungsfall / Vorgang** lässt sich der Status nun direkt auf **Aktiv**, **Abgeschlossen** oder **Archiviert** setzen.
+- Statusänderungen werden ohne Reload mit der Vorgangsverwaltung und den Vorgangsauswahlen synchronisiert.
 
 - Das Feld „Bezeichnung des neuen Vorgangs“ erscheint nur noch, wenn wirklich **+ Neuen Vorgang anlegen** gewählt wurde.
 - Neue **Vorgangsverwaltung**: umbenennen, Status setzen oder löschen.
@@ -25,10 +29,10 @@ Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 ## Parallel testen
 
 ```bash
-cd /docker/stinkis-krankenakten-v0.7.1
+cd /docker/stinkis-krankenakten-v0.7.2
 sudo docker compose -f compose-test.yaml up -d --build
 ```
 
-Aufruf: `http://SERVER-IP:8503`
+Aufruf: `http://SERVER-IP:8504`
 
 Das Test-Volume heißt `stinkis_v070_test_data`.
