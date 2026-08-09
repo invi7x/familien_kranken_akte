@@ -576,3 +576,105 @@ function prepareRelatedEntry(button) {
 document.querySelectorAll("[data-related-entry]").forEach((button) => {
   button.addEventListener("click", () => prepareRelatedEntry(button));
 });
+
+// v0.7.1 – Vorgangsverwaltung und skalierbare Auswahl.
+function setupCaseSearch(select, personSelect, searchWrapId, searchId) {
+  const wrap = document.getElementById(searchWrapId);
+  const input = document.getElementById(searchId);
+  if (!select || !personSelect || !wrap || !input) return;
+
+  function refresh() {
+    const personId = String(personSelect.value || "");
+    const visibleCaseOptions = [...select.options].filter((option) => option.dataset.personId === personId && !option.disabled);
+    wrap.hidden = visibleCaseOptions.length <= 10;
+    if (wrap.hidden) input.value = "";
+    const term = input.value.trim().toLowerCase();
+    [...select.options].forEach((option) => {
+      if (!option.dataset.personId || option.value === "__new__") return;
+      const personMatches = option.dataset.personId === personId;
+      const textMatches = !term || option.textContent.toLowerCase().includes(term);
+      option.hidden = !(personMatches && textMatches);
+    });
+  }
+
+  input.addEventListener("input", refresh);
+  personSelect.addEventListener("change", refresh);
+  select.addEventListener("change", refresh);
+  refresh();
+}
+
+setupCaseSearch(newCaseSelect, newEventPerson, "new-case-search-wrap", "new-case-search");
+setupCaseSearch(editCaseSelect, editPersonSelect, "edit-case-search-wrap", "edit-case-search");
+
+function caseStatusLabel(status) {
+  if (status === "completed") return "Abgeschlossen";
+  if (status === "archived") return "Archiviert";
+  return "Aktiv";
+}
+
+function updateCaseAdminStatus(item, status) {
+  item.dataset.caseStatus = status;
+  const chip = item.querySelector(".case-status-chip");
+  if (chip) {
+    chip.className = `case-status-chip case-status-${status}`;
+    chip.textContent = caseStatusLabel(status);
+  }
+}
+
+document.querySelectorAll("[data-case-save]").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const item = button.closest("[data-case-admin-id]");
+    const input = item?.querySelector(".case-admin-title");
+    const caseId = item?.dataset.caseAdminId;
+    if (!caseId || !input?.value.trim()) return;
+    const body = new URLSearchParams({ title: input.value.trim() });
+    const response = await fetch(`/cases/${caseId}/edit`, { method: "POST", body, headers: { "X-Requested-With": "fetch" } });
+    if (!response.ok) return;
+    document.querySelectorAll(`select[name="case_id"] option[value="${caseId}"]`).forEach((option) => {
+      const suffix = option.dataset.caseStatus && option.dataset.caseStatus !== "active" ? ` · ${option.dataset.caseStatus === "completed" ? "abgeschlossen" : "archiviert"}` : "";
+      option.textContent = input.value.trim() + suffix;
+    });
+    document.querySelectorAll(`[data-open-modal="case-modal-${caseId}"]`).forEach((badge) => { badge.textContent = `🔗 ${input.value.trim()}`; });
+    button.textContent = "✓";
+  });
+});
+
+document.querySelectorAll(".case-status-select").forEach((select) => {
+  select.addEventListener("change", async () => {
+    const item = select.closest("[data-case-admin-id]");
+    const caseId = item?.dataset.caseAdminId;
+    if (!caseId) return;
+    const body = new URLSearchParams({ status: select.value });
+    const response = await fetch(`/cases/${caseId}/status`, { method: "POST", body, headers: { "X-Requested-With": "fetch" } });
+    if (!response.ok) return;
+    updateCaseAdminStatus(item, select.value);
+    document.querySelectorAll(`select[name="case_id"] option[value="${caseId}"]`).forEach((option) => {
+      option.dataset.caseStatus = select.value;
+      if (option.closest("#new-case-id") && select.value !== "active") option.remove();
+    });
+  });
+});
+
+document.querySelectorAll("[data-case-delete]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const item = button.closest("[data-case-admin-id]");
+    const caseId = item?.dataset.caseAdminId;
+    const eventCount = Number(button.dataset.eventCount || 0);
+    if (!caseId) return;
+    const message = eventCount > 0
+      ? `Dieser Vorgang ist noch mit ${eventCount} ${eventCount === 1 ? "Eintrag" : "Einträgen"} verknüpft. Der Vorgang wird gelöscht, die Einträge bleiben erhalten und verlieren nur die Zuordnung. Wirklich löschen?`
+      : "Dieser Vorgang enthält keine Einträge und wird dauerhaft gelöscht. Wirklich löschen?";
+    requestConfirmation(message, async () => {
+      const response = await fetch(`/cases/${caseId}/delete`, { method: "POST", headers: { "X-Requested-With": "fetch" } });
+      if (!response.ok) return;
+      document.querySelectorAll(`select[name="case_id"] option[value="${caseId}"]`).forEach((option) => option.remove());
+      document.querySelectorAll(`[data-open-modal="case-modal-${caseId}"]`).forEach((badge) => badge.remove());
+      document.getElementById(`case-modal-${caseId}`)?.remove();
+      item.remove();
+      if (!document.querySelector("[data-case-admin-id]")) {
+        const list = document.getElementById("case-admin-list");
+        if (list) list.innerHTML = '<p class="muted" id="case-admin-empty">Noch keine Vorgänge angelegt.</p>';
+      }
+    }, "Vorgang wirklich löschen?", { okText: "Ja, Vorgang löschen", cancelText: "Nein, behalten" });
+  });
+});

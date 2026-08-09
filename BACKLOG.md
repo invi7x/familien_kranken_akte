@@ -125,3 +125,8 @@
 - Filterzeile neu ausgerichtet: Aktionen links, Zeitraum und Status rechts.
 - Statusfeld kompakter dimensioniert; Datumsfelder bleiben innerhalb des gemeinsamen Rasters.
 - Personengruppen in Allergie- und Medikamentenboxen als dezente Karten hervorgehoben.
+
+
+## Vorgänge / Behandlungsfälle – weiterer Test
+- Praxistest der Statuslogik Aktiv / Abgeschlossen / Archiviert.
+- Bei Bedarf später eigene Vorgangsübersicht mit noch stärkerer Suche/Filterung.

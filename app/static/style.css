@@ -438,3 +438,16 @@
 .medication-summary{display:grid!important;gap:.18rem;padding:.4rem 0!important}.medication-summary .med-name{font-size:1.02rem;line-height:1.25}.medication-summary .med-dose{font-size:.95rem;color:#52647a!important;margin:0!important}.med-meta{display:grid;gap:.1rem;margin-top:.18rem}.med-meta small{display:block!important;margin:0!important;line-height:1.4;color:#64748b!important}.med-note{display:block!important;margin-top:.3rem!important;line-height:1.45;color:#64748b!important}.med-note strong,.med-meta strong{display:inline!important;color:#52647a}.medication-summary .warning{margin-top:.3rem}
 .new-event-header-btn{gap:.35rem}.new-event-plus{font-weight:900;font-size:1.05rem}
 @media(max-width:620px){.new-event-header-btn{width:44px!important;height:44px!important;min-width:44px;padding:0!important;border-radius:50%!important;flex:0 0 44px!important}.new-event-label{display:none}.new-event-plus{font-size:1.5rem;line-height:1}.case-followup-panel{align-items:flex-start;flex-direction:column}.case-followup-actions{width:100%}.case-followup-actions .btn{flex:1}.case-add-actions .btn{flex:1}.case-fields{padding:.75rem}}
+
+/* v0.7.1 – Vorgänge aufräumen, verwalten und langfristig skalierbar halten */
+.case-fields-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
+.case-manage-link{border:0;background:transparent;color:var(--accent);font-weight:700;cursor:pointer;padding:.2rem .35rem;white-space:nowrap}
+.case-search-wrap[hidden],#new-case-title-wrap[hidden],#edit-case-title-wrap[hidden]{display:none!important}
+.case-admin-list{display:grid;gap:.75rem}
+.case-admin-item{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.8rem;border:1px solid var(--border);border-radius:.85rem;background:#f8fafc}
+.case-admin-main{min-width:0;flex:1}.case-admin-main small{display:block;color:var(--muted);margin-top:.25rem}
+.case-admin-title-row{display:flex;align-items:center;gap:.55rem}.case-admin-title{font-weight:700;padding:.55rem .65rem;min-width:0}
+.case-admin-actions{display:flex;align-items:center;gap:.45rem;flex:0 0 auto}.case-status-select{width:auto;min-width:128px;padding:.55rem .65rem}
+.case-status-chip{display:inline-flex;align-items:center;border-radius:999px;padding:.2rem .5rem;font-size:.75rem;font-weight:800;white-space:nowrap}
+.case-status-active{background:#dcfce7;color:#166534}.case-status-completed{background:#e2e8f0;color:#475569}.case-status-archived{background:#f1f5f9;color:#64748b}
+@media(max-width:620px){.case-fields-head{align-items:flex-start}.case-manage-link{font-size:.9rem}.case-admin-item{align-items:stretch;flex-direction:column}.case-admin-actions{width:100%}.case-status-select{flex:1}.case-admin-title-row{align-items:flex-start;flex-direction:column}.case-status-chip{align-self:flex-start}}

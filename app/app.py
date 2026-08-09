@@ -24,8 +24,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DB_PATH = DATA_DIR / "stinkis.db"
-APP_VERSION = "0.7.0"
-SCHEMA_VERSION = 7
+APP_VERSION = "0.7.1"
+SCHEMA_VERSION = 8
 MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024
 
 app = Flask(__name__)
@@ -71,7 +71,9 @@ def init_db() -> None:
                 person_id INTEGER NOT NULL,
                 title TEXT NOT NULL,
                 notes TEXT DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'active',
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
             );
 
@@ -136,6 +138,8 @@ def init_db() -> None:
         _add_column(db, "events", "has_attest INTEGER NOT NULL DEFAULT 0")
         _add_column(db, "events", "attest_type TEXT DEFAULT ''")
         _add_column(db, "events", "case_id INTEGER")
+        _add_column(db, "treatment_cases", "status TEXT NOT NULL DEFAULT 'active'")
+        _add_column(db, "treatment_cases", "updated_at TEXT")
         _add_column(db, "allergies", "start_date TEXT")
         _add_column(db, "allergies", "end_date TEXT")
         _add_column(db, "allergies", "resolved_note TEXT DEFAULT ''")
@@ -450,10 +454,12 @@ def index():
         ).fetchall()
 
         case_rows = [dict(row) for row in db.execute(
-            """SELECT c.*, p.name AS person_name, p.sort_order
+            """SELECT c.*, p.name AS person_name, p.sort_order,
+                      (SELECT COUNT(*) FROM events e WHERE e.case_id=c.id) AS event_count
                FROM treatment_cases c JOIN people p ON p.id=c.person_id
-               ORDER BY p.sort_order, p.name, c.created_at DESC, c.id DESC"""
+               ORDER BY p.sort_order, p.name, CASE c.status WHEN 'active' THEN 0 WHEN 'completed' THEN 1 ELSE 2 END, COALESCE(c.updated_at,c.created_at) DESC, c.id DESC"""
         ).fetchall()]
+        active_case_rows = [row for row in case_rows if (row.get("status") or "active") == "active"]
         case_event_rows = [dict(row) for row in db.execute(
             """SELECT e.id, e.case_id, e.person_id, e.category, e.title, e.start_date, e.end_date,
                       e.medication_dosage, e.medication_reason
@@ -493,6 +499,7 @@ def index():
         medication_groups=_group_by_person(active_medications),
         medication_history_groups=_group_by_person(ended_medications),
         treatment_cases=case_rows,
+        active_treatment_cases=active_case_rows,
         followup_case=followup_case,
         q=q,
         selected_person_id=person_id,
@@ -680,6 +687,35 @@ def _redirect_with_query(**updates):
         else:
             query[key] = str(value)
     return redirect(urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment)))
+
+
+@app.post("/cases/<int:case_id>/edit")
+def edit_treatment_case(case_id: int):
+    title = request.form.get("title", "").strip()
+    if not title:
+        return {"ok": False, "error": "Bitte eine Bezeichnung eingeben."}, 400
+    with get_db() as db:
+        db.execute("UPDATE treatment_cases SET title=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", (title, case_id))
+    return {"ok": True, "title": title}
+
+
+@app.post("/cases/<int:case_id>/status")
+def set_treatment_case_status(case_id: int):
+    status = request.form.get("status", "active").strip()
+    if status not in {"active", "completed", "archived"}:
+        return {"ok": False, "error": "Ungültiger Status."}, 400
+    with get_db() as db:
+        db.execute("UPDATE treatment_cases SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", (status, case_id))
+    return {"ok": True, "status": status}
+
+
+@app.post("/cases/<int:case_id>/delete")
+def delete_treatment_case(case_id: int):
+    with get_db() as db:
+        count = int(db.execute("SELECT COUNT(*) AS n FROM events WHERE case_id=?", (case_id,)).fetchone()["n"])
+        db.execute("UPDATE events SET case_id=NULL, updated_at=CURRENT_TIMESTAMP WHERE case_id=?", (case_id,))
+        db.execute("DELETE FROM treatment_cases WHERE id=?", (case_id,))
+    return {"ok": True, "unlinked": count}
 
 
 @app.post("/events")
@@ -931,9 +967,10 @@ def import_data():
                 for position, row in enumerate(imported_people, start=1):
                     db.execute("UPDATE people SET sort_order=? WHERE id=?", (position * 10, row["id"]))
             for row in treatment_cases:
-                item = _clean_record(row, ["id", "person_id", "title", "notes", "created_at"])
+                item = _clean_record(row, ["id", "person_id", "title", "notes", "status", "created_at", "updated_at"])
                 if not item.get("person_id") or not item.get("title"):
                     continue
+                item.setdefault("status", "active")
                 cols = list(item)
                 db.execute(f"INSERT INTO treatment_cases ({','.join(cols)}) VALUES ({','.join('?' for _ in cols)})", [item[c] for c in cols])
             for row in events:
