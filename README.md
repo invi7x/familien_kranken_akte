@@ -28,7 +28,7 @@ Screenshots folgen. Bitte für öffentliche Screenshots ausschließlich Demo-Dat
 ### 1. Repository klonen
 
 ```bash
-git clone https://github.com/DEIN-GITHUB-NAME/familienakte.git
+git clone https://github.com/invi7x/familienakte.git
 cd familienakte
 ```
 
