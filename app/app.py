@@ -8,7 +8,7 @@ import os
 from html import escape
 import sqlite3
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from typing import Any
@@ -24,9 +24,17 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DB_PATH = DATA_DIR / "stinkis.db"
-APP_VERSION = "0.7.2"
+APP_VERSION = "0.8.0"
 SCHEMA_VERSION = 8
 MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024
+
+BACKUP_DEFAULTS = {
+    "backup_enabled": "0",
+    "backup_day": "1",
+    "backup_dir": "/backups",
+    "backup_keep": "12",
+    "backup_last_run": "",
+}
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-portainer")
@@ -75,6 +83,11 @@ def init_db() -> None:
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL DEFAULT ''
             );
 
             CREATE TABLE IF NOT EXISTS events (
@@ -144,6 +157,9 @@ def init_db() -> None:
         _add_column(db, "allergies", "end_date TEXT")
         _add_column(db, "allergies", "resolved_note TEXT DEFAULT ''")
 
+        for key, value in BACKUP_DEFAULTS.items():
+            db.execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)", (key, value))
+
         # v0.3 vereinheitlicht Medikamente: Die Timeline ist die einzige Datenquelle.
         # Bereits vorhandene Datensätze aus der alten separaten Medikamenten-Tabelle
         # werden einmalig in Timeline-Einträge überführt.
@@ -184,6 +200,93 @@ def init_db() -> None:
                 )
         if legacy_meds:
             db.execute("DELETE FROM medications")
+
+
+def _load_backup_settings(db: sqlite3.Connection | None = None) -> dict[str, Any]:
+    owns_connection = db is None
+    db = db or get_db()
+    try:
+        rows = db.execute("SELECT key, value FROM app_settings").fetchall()
+        values = {row["key"]: row["value"] for row in rows}
+        for key, default in BACKUP_DEFAULTS.items():
+            values.setdefault(key, default)
+        return {
+            "enabled": values["backup_enabled"] == "1",
+            "day": int(values["backup_day"] or 1),
+            "directory": values["backup_dir"] or "/backups",
+            "keep": int(values["backup_keep"] or 12),
+            "last_run": values["backup_last_run"] or "",
+        }
+    finally:
+        if owns_connection:
+            db.close()
+
+
+def _set_app_setting(db: sqlite3.Connection, key: str, value: str) -> None:
+    db.execute(
+        "INSERT INTO app_settings (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        (key, value),
+    )
+
+
+def _build_export_payload(db: sqlite3.Connection) -> dict[str, Any]:
+    return {
+        "schemaVersion": SCHEMA_VERSION,
+        "appVersion": APP_VERSION,
+        "exportedAt": datetime.now().isoformat(timespec="seconds"),
+        "people": [dict(row) for row in db.execute("SELECT * FROM people").fetchall()],
+        "treatmentCases": [dict(row) for row in db.execute("SELECT * FROM treatment_cases").fetchall()],
+        "events": [dict(row) for row in db.execute("SELECT * FROM events").fetchall()],
+        "allergies": [dict(row) for row in db.execute("SELECT * FROM allergies").fetchall()],
+        "medications": [
+            {
+                "person_id": row["person_id"], "name": row["title"],
+                "dosage": row["medication_dosage"], "reason": row["medication_reason"],
+                "start_date": row["start_date"], "end_date": row["end_date"],
+                "intolerance": row["medication_intolerance"], "notes": row["notes"],
+                "created_at": row["created_at"],
+            }
+            for row in db.execute("SELECT * FROM events WHERE category='Medikament'").fetchall()
+        ],
+    }
+
+
+def _backup_due(settings: dict[str, Any], today_value: date | None = None) -> bool:
+    if not settings.get("enabled"):
+        return False
+    today_value = today_value or date.today()
+    if today_value.day < int(settings.get("day") or 1):
+        return False
+    last_run = str(settings.get("last_run") or "")[:10]
+    if not last_run:
+        return True
+    try:
+        previous = date.fromisoformat(last_run)
+    except ValueError:
+        return True
+    return (previous.year, previous.month) != (today_value.year, today_value.month)
+
+
+def _write_server_backup() -> Path:
+    with get_db() as db:
+        settings = _load_backup_settings(db)
+        backup_dir = Path(settings["directory"])
+        if not backup_dir.is_absolute():
+            raise ValueError("Der Backup-Pfad muss ein absoluter Pfad im Container sein.")
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        payload = _build_export_payload(db)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        target = backup_dir / f"stinkis-backup-{timestamp}.json"
+        temp_target = target.with_suffix(".json.tmp")
+        temp_target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        temp_target.replace(target)
+        keep = max(1, min(60, int(settings.get("keep") or 12)))
+        files = sorted(backup_dir.glob("stinkis-backup-*.json"), key=lambda item: item.stat().st_mtime, reverse=True)
+        for old_file in files[keep:]:
+            old_file.unlink(missing_ok=True)
+        _set_app_setting(db, "backup_last_run", datetime.now().isoformat(timespec="seconds"))
+        return target
 
 
 @app.context_processor
@@ -478,6 +581,7 @@ def index():
                 followup_case = next((item for item in case_rows if int(item["id"]) == wanted_case_id), None)
             except ValueError:
                 followup_case = None
+        backup_settings = _load_backup_settings(db)
 
     active_allergies = [a for a in allergies if not a["end_date"] or a["end_date"] > today_iso]
     ended_allergies = [a for a in allergies if a["end_date"] and a["end_date"] <= today_iso]
@@ -501,6 +605,7 @@ def index():
         treatment_cases=case_rows,
         active_treatment_cases=active_case_rows,
         followup_case=followup_case,
+        backup_settings=backup_settings,
         q=q,
         selected_person_id=person_id,
         selected_category=category,
@@ -897,29 +1002,48 @@ def delete_allergy(allergy_id: int):
 @app.get("/export")
 def export_data():
     with get_db() as db:
-        payload = {
-            "schemaVersion": SCHEMA_VERSION,
-            "appVersion": APP_VERSION,
-            "exportedAt": date.today().isoformat(),
-            "people": [dict(row) for row in db.execute("SELECT * FROM people").fetchall()],
-            "treatmentCases": [dict(row) for row in db.execute("SELECT * FROM treatment_cases").fetchall()],
-            "events": [dict(row) for row in db.execute("SELECT * FROM events").fetchall()],
-            "allergies": [dict(row) for row in db.execute("SELECT * FROM allergies").fetchall()],
-            # Kompatibilitätsabbild für ältere App-Stände. Ab Schema 3 sind
-            # Medikamenten-Einträge in 'events' die maßgebliche Datenquelle.
-            "medications": [
-                {
-                    "person_id": row["person_id"], "name": row["title"],
-                    "dosage": row["medication_dosage"], "reason": row["medication_reason"],
-                    "start_date": row["start_date"], "end_date": row["end_date"],
-                    "intolerance": row["medication_intolerance"], "notes": row["notes"],
-                    "created_at": row["created_at"],
-                }
-                for row in db.execute("SELECT * FROM events WHERE category='Medikament'").fetchall()
-            ],
-        }
+        payload = _build_export_payload(db)
     body = json.dumps(payload, ensure_ascii=False, indent=2)
     return Response(body, mimetype="application/json", headers={"Content-Disposition": "attachment; filename=stinkis-krankenakten-export.json"})
+
+
+@app.post("/settings/backups")
+def update_backup_settings():
+    enabled = request.form.get("backup_enabled") == "on"
+    directory = request.form.get("backup_dir", "/backups").strip() or "/backups"
+    try:
+        day = int(request.form.get("backup_day", "1"))
+        keep = int(request.form.get("backup_keep", "12"))
+    except ValueError:
+        flash("Backup-Tag und Anzahl der Sicherungen müssen Zahlen sein.", "error")
+        return redirect(url_for("index"))
+    if not 1 <= day <= 28:
+        flash("Der Backup-Tag muss zwischen 1 und 28 liegen.", "error")
+        return redirect(url_for("index"))
+    if not 1 <= keep <= 60:
+        flash("Es können zwischen 1 und 60 Sicherungen aufbewahrt werden.", "error")
+        return redirect(url_for("index"))
+    if not Path(directory).is_absolute():
+        flash("Der Backup-Pfad muss ein absoluter Pfad im Container sein.", "error")
+        return redirect(url_for("index"))
+    with get_db() as db:
+        _set_app_setting(db, "backup_enabled", "1" if enabled else "0")
+        _set_app_setting(db, "backup_day", str(day))
+        _set_app_setting(db, "backup_dir", directory)
+        _set_app_setting(db, "backup_keep", str(keep))
+    flash("Backup-Einstellungen wurden gespeichert.", "success")
+    return redirect(url_for("index"))
+
+
+@app.post("/settings/backups/run")
+def run_backup_now():
+    try:
+        target = _write_server_backup()
+    except (OSError, ValueError) as exc:
+        flash(f"Server-Backup fehlgeschlagen: {exc}", "error")
+    else:
+        flash(f"Server-Backup gespeichert: {target}", "success")
+    return redirect(url_for("index"))
 
 
 def _clean_record(record: dict[str, Any], allowed: list[str]) -> dict[str, Any]:

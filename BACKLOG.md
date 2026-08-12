@@ -130,3 +130,20 @@
 ## Vorgänge / Behandlungsfälle – weiterer Test
 - Praxistest der Statuslogik Aktiv / Abgeschlossen / Archiviert.
 - Bei Bedarf später eigene Vorgangsübersicht mit noch stärkerer Suche/Filterung.
+
+## In v0.8.0 erledigt
+- Einstellungen-Bereich als Basis für künftige App-Konfiguration.
+- Monatliche automatische JSON-Backups auf einen serverseitigen Containerpfad.
+- Eigenständiger Backup-Scheduler als Docker-Service; kein geöffneter Browser nötig.
+- Backup-Tag, Zielpfad und Aufbewahrungsanzahl konfigurierbar.
+- Manuelles „Jetzt auf Server sichern“ und Anzeige der letzten erfolgreichen Sicherung.
+- Eigenes persistentes Backup-Volume in den Compose-Dateien.
+- Weitere typografische Aufräumarbeiten in Allergie-/Medikamentenboxen.
+
+## Richtung v1.0 – nächste Prioritäten
+- Restore-Test: frische Installation → JSON-Import → vollständige Daten-/Avatar-/Vorgangsprüfung.
+- Reports: Medikamentenauswertung sowie Jahresauswertung für Krankmeldungen / Atteste.
+- GitHub-Release-Vorbereitung: README, Screenshots, CHANGELOG, Update-/Backup-/Restore-Anleitung.
+- Mobile/Desktop-Regressionsrunde und weitere Alltagstests mit echten Daten.
+- Mehrsprachigkeit DE/EN voraussichtlich nach v1.0 bzw. v1.1.
+- Grafischer Gesundheitsverlauf und Pollenflug-Widget nach v1.0.

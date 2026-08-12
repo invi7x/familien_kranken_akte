@@ -1,38 +1,41 @@
-# Stinkis’ Krankenakten – Version 0.7.2
+# Stinkis’ Krankenakten – Version 0.8.0
 
 Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 
-## Neu in Version 0.7.2
+## Neu in Version 0.8.0
 
-- Der zentrale Dialog **„Neuer Eintrag“** bietet jetzt auch **„Allergie / Unverträglichkeit“** an und öffnet dafür automatisch die spezialisierte Allergie-Maske mit bereits gewählter Person.
-- Im geöffneten **Behandlungsfall / Vorgang** lässt sich der Status nun direkt auf **Aktiv**, **Abgeschlossen** oder **Archiviert** setzen.
-- Statusänderungen werden ohne Reload mit der Vorgangsverwaltung und den Vorgangsauswahlen synchronisiert.
-
-- Das Feld „Bezeichnung des neuen Vorgangs“ erscheint nur noch, wenn wirklich **+ Neuen Vorgang anlegen** gewählt wurde.
-- Neue **Vorgangsverwaltung**: umbenennen, Status setzen oder löschen.
-- Vorgangsstatus: **Aktiv / Abgeschlossen / Archiviert**. Nur aktive Vorgänge stehen bei neuen Einträgen im normalen Dropdown.
-- Beim Löschen eines Vorgangs bleiben verknüpfte Timeline-Einträge erhalten; nur die Zuordnung wird entfernt.
-- Ab mehr als 10 passenden Vorgängen erscheint eine Suchmöglichkeit in der Vorgangsauswahl.
-
-- Neuer optionaler **Behandlungsfall / Vorgang** verbindet zusammengehörige Timeline-Einträge.
-- Krankheit, Arztbesuch und Medikament behalten trotzdem jeweils ihren eigenen Zeitraum.
-- Beim Anlegen eines Eintrags kann ein bestehender Vorgang gewählt oder direkt ein neuer Vorgang angelegt werden.
-- Nach dem Speichern eines verknüpften Eintrags erscheint eine kompakte Folgeaktion: **+ Arztbesuch**, **+ Medikament** oder **+ weiterer Eintrag**.
-- Vorgangs-Badge in der Timeline öffnet eine Übersicht aller zugehörigen Einträge.
-- JSON-Export/-Import enthält die Vorgänge; Schema-Version jetzt 8.
-- CSV-Bericht erhält die zusätzliche Spalte **Vorgang**.
-- Medikamentenbox rechts typografisch aufgeräumt: Name, Dosierung, Grund, Zeitraum und Notiz sind klarer gegliedert.
-- Auf schmalen Mobil-Viewports wird **Neuer Eintrag** im Header als kompaktes rundes Plus dargestellt.
-- **Externe URL / Link** ist jetzt ein freies Textfeld und akzeptiert damit auch NAS-/Netzwerkpfade oder andere Referenzen.
-- Datumsfelder werden serverseitig strenger validiert; unvollständige oder ungültige Kalenderdaten werden abgewiesen.
+- Neuer Bereich **⚙️ Einstellungen**.
+- **Automatische monatliche JSON-Backups** serverseitig aktivierbar.
+- Backup-Tag im Monat (1–28), Zielpfad und Anzahl aufzubewahrender Sicherungen konfigurierbar.
+- **„Jetzt auf Server sichern“** für ein sofortiges Backup.
+- Letzter erfolgreicher Backup-Zeitpunkt wird angezeigt.
+- Separater Docker-Backup-Scheduler: Backups laufen auch dann, wenn die Webseite nicht geöffnet ist.
+- Standardmäßig werden Backups in einem eigenen persistenten Docker-Volume unter `/backups` abgelegt.
+- Rechte Medikamenten-/Allergieboxen typografisch nochmals aufgeräumt: klarere Hierarchie und mehr Luft bei Grund, Zeitraum und Notiz.
+- Die bereits vorhandenen Kategorie-Icons bleiben in den Kategorie-Dropdowns erhalten.
 
 ## Parallel testen
 
 ```bash
-cd /docker/stinkis-krankenakten-v0.7.2
+cd /docker/stinkis-krankenakten-v0.8.0
 sudo docker compose -f compose-test.yaml up -d --build
 ```
 
-Aufruf: `http://SERVER-IP:8504`
+Aufruf: `http://SERVER-IP:8505`
 
-Das Test-Volume heißt `stinkis_v070_test_data`.
+Das Test-Volume heißt `stinkis_v080_test_data`.
+
+## Automatische Server-Backups
+
+Die Compose-Dateien starten neben der Web-App einen kleinen `backup-scheduler`. Er prüft stündlich, ob das konfigurierte monatliche Backup fällig ist.
+
+Standardpfad: `/backups`
+
+Dieser Pfad ist im mitgelieferten Compose als eigenes persistentes Docker-Volume eingebunden. Wer Backups direkt in einen Ordner des Hosts/NAS schreiben möchte, kann das Volume später durch einen Bind-Mount ersetzen, beispielsweise:
+
+```yaml
+volumes:
+  - /docker/stinkis-backups:/backups
+```
+
+Die automatische Sicherung verwendet dasselbe vollständige JSON-Format wie der manuelle Export, inklusive Profilbildern und Schema-Version.

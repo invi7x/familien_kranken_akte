@@ -12,6 +12,7 @@ services:
       - "8484:8484"
     volumes:
       - stinkis_data:/data
+      - stinkis_backups:/backups
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8484/health')"]
       interval: 30s
@@ -19,6 +20,24 @@ services:
       retries: 3
       start_period: 15s
 
+  backup-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stinkis-krankenakten-backup-scheduler
+    restart: unless-stopped
+    environment:
+      DATA_DIR: /data
+      SECRET_KEY: change-this-secret-key
+    command: ["python", "backup_scheduler.py"]
+    volumes:
+      - stinkis_data:/data
+      - stinkis_backups:/backups
+
+
 volumes:
   stinkis_data:
     name: stinkis_krankenakten_data
+
+  stinkis_backups:
+    name: stinkis_backups

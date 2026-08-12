@@ -1,17 +1,18 @@
 services:
-  stinkis-krankenakten-v072:
+  stinkis-krankenakten-v080:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: stinkis-krankenakten-v072
+    container_name: stinkis-krankenakten-v080
     restart: unless-stopped
     environment:
       DATA_DIR: /data
       SECRET_KEY: change-this-secret-key
     ports:
-      - "8504:8484"
+      - "8505:8484"
     volumes:
-      - stinkis_v072_test_data:/data
+      - stinkis_v080_test_data:/data
+      - stinkis_v080_test_backups:/backups
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8484/health')"]
       interval: 30s
@@ -19,6 +20,24 @@ services:
       retries: 3
       start_period: 15s
 
+  backup-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stinkis-krankenakten-v080-backup-scheduler
+    restart: unless-stopped
+    environment:
+      DATA_DIR: /data
+      SECRET_KEY: change-this-secret-key
+    command: ["python", "backup_scheduler.py"]
+    volumes:
+      - stinkis_v080_test_data:/data
+      - stinkis_v080_test_backups:/backups
+
+
 volumes:
-  stinkis_v072_test_data:
-    name: stinkis_v072_test_data
+  stinkis_v080_test_data:
+    name: stinkis_v080_test_data
+
+  stinkis_v080_test_backups:
+    name: stinkis_v080_test_backups
