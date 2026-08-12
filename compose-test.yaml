@@ -1,18 +1,18 @@
 services:
-  familienakte-v083:
+  familienakte-v084:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: familienakte-v083
+    container_name: familienakte-v084
     restart: unless-stopped
     environment:
       DATA_DIR: /data
       SECRET_KEY: change-this-secret-key
     ports:
-      - "8508:8484"
+      - "8510:8484"
     volumes:
-      - familienakte_v083_test_data:/data
-      - familienakte_v083_test_backups:/backups
+      - familienakte_v084_test_data:/data
+      - familienakte_v084_test_backups:/backups
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8484/health')"]
       interval: 30s
@@ -24,19 +24,19 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: familienakte-v083-backup-scheduler
+    container_name: familienakte-v084-backup-scheduler
     restart: unless-stopped
     environment:
       DATA_DIR: /data
       SECRET_KEY: change-this-secret-key
     command: ["python", "backup_scheduler.py"]
     volumes:
-      - familienakte_v083_test_data:/data
-      - familienakte_v083_test_backups:/backups
+      - familienakte_v084_test_data:/data
+      - familienakte_v084_test_backups:/backups
 
 volumes:
-  familienakte_v083_test_data:
-    name: familienakte_v083_test_data
+  familienakte_v084_test_data:
+    name: familienakte_v084_test_data
 
-  familienakte_v083_test_backups:
-    name: familienakte_v083_test_backups
+  familienakte_v084_test_backups:
+    name: familienakte_v084_test_backups

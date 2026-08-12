@@ -764,3 +764,77 @@ const requestedModal = new URLSearchParams(window.location.search).get("open_mod
 if (requestedModal) {
   requestAnimationFrame(() => openModal(requestedModal));
 }
+
+// v0.8.4 – Backup-Aktionen laufen im offenen Modal, ohne Seitenreload.
+function buildBackupRow(file) {
+  const row = document.createElement("div");
+  row.className = "backup-file-row";
+  const info = document.createElement("div");
+  const created = document.createElement("strong");
+  created.textContent = file.created || "";
+  const meta = document.createElement("small");
+  meta.textContent = `${file.name || ""} · ${file.size || ""}`;
+  info.append(created, meta);
+  const link = document.createElement("a");
+  link.className = "small-download-btn";
+  link.textContent = "Download";
+  link.href = `/backups/${encodeURIComponent(file.name || "")}/download`;
+  row.append(info, link);
+  return row;
+}
+
+function refreshBackupDialog(data) {
+  const modal = document.getElementById("backup-modal");
+  if (!modal || !data) return;
+  const settings = data.settings || {};
+  const files = data.files || [];
+  const state = modal.querySelector(".settings-state");
+  if (state) {
+    state.textContent = settings.enabled ? "Aktiv" : "Aus";
+    state.classList.toggle("enabled", !!settings.enabled);
+  }
+  const lastRun = document.querySelector("#backup-last-run span");
+  if (lastRun) lastRun.textContent = settings.last_run || "noch keine";
+  const count = document.getElementById("backup-file-count");
+  if (count) count.textContent = `${files.length} / ${settings.keep || 10}`;
+  const list = document.getElementById("backup-file-list");
+  if (list) {
+    list.replaceChildren(...files.map(buildBackupRow));
+  }
+  const serverBackups = document.getElementById("server-backups");
+  const empty = document.getElementById("backup-empty");
+  if (serverBackups) serverBackups.hidden = files.length === 0;
+  if (empty) empty.hidden = files.length > 0;
+  rememberModalState(modal);
+}
+
+async function submitBackupFormInModal(form) {
+  const button = form.querySelector('button[type="submit"]');
+  const originalText = button?.textContent || "";
+  if (button) button.disabled = true;
+  try {
+    const response = await fetch(form.action, {
+      method: "POST",
+      body: new FormData(form),
+      headers: { "X-Requested-With": "fetch" },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) throw new Error(data.message || "Aktion fehlgeschlagen.");
+    refreshBackupDialog(data);
+    if (button) {
+      button.textContent = form.id === "backup-now-form" ? "Backup gespeichert ✓" : "Gespeichert ✓";
+      setTimeout(() => { if (button) button.textContent = originalText; }, 1400);
+    }
+  } catch (error) {
+    requestConfirmation(error.message || "Aktion fehlgeschlagen.", () => {}, "Fehler", { okText: "OK", cancelText: "Schließen", danger: false });
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+[document.getElementById("backup-settings-form"), document.getElementById("backup-now-form")].forEach((form) => {
+  form?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitBackupFormInModal(form);
+  });
+});

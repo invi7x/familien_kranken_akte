@@ -24,7 +24,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DB_PATH = DATA_DIR / "stinkis.db"
-APP_VERSION = "0.8.3"
+APP_VERSION = "0.8.4"
 SCHEMA_VERSION = 8
 MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024
 
@@ -1060,22 +1060,35 @@ def export_data():
 
 @app.post("/settings/backups")
 def update_backup_settings():
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     enabled = request.form.get("backup_enabled") == "on"
     directory = request.form.get("backup_dir", "/backups").strip() or "/backups"
     try:
         day = int(request.form.get("backup_day", "1"))
         keep = int(request.form.get("backup_keep", "10"))
     except ValueError:
-        flash("Backup-Tag und Anzahl der Sicherungen müssen Zahlen sein.", "error")
+        message = "Backup-Tag und Anzahl der Sicherungen müssen Zahlen sein."
+        if is_fetch:
+            return {"ok": False, "message": message}, 400
+        flash(message, "error")
         return redirect(url_for("index"))
     if not 1 <= day <= 28:
-        flash("Der Backup-Tag muss zwischen 1 und 28 liegen.", "error")
+        message = "Der Backup-Tag muss zwischen 1 und 28 liegen."
+        if is_fetch:
+            return {"ok": False, "message": message}, 400
+        flash(message, "error")
         return redirect(url_for("index"))
     if not 1 <= keep <= 10:
-        flash("Es können zwischen 1 und 10 Sicherungen aufbewahrt werden.", "error")
+        message = "Es können zwischen 1 und 10 Sicherungen aufbewahrt werden."
+        if is_fetch:
+            return {"ok": False, "message": message}, 400
+        flash(message, "error")
         return redirect(url_for("index"))
     if not Path(directory).is_absolute():
-        flash("Der Backup-Pfad muss ein absoluter Pfad im Container sein.", "error")
+        message = "Der Backup-Pfad muss ein absoluter Pfad im Container sein."
+        if is_fetch:
+            return {"ok": False, "message": message}, 400
+        flash(message, "error")
         return redirect(url_for("index"))
     with get_db() as db:
         _set_app_setting(db, "backup_enabled", "1" if enabled else "0")
@@ -1088,17 +1101,27 @@ def update_backup_settings():
             _prune_server_backups(backup_dir, keep)
     except OSError:
         pass
+    if is_fetch:
+        settings = _load_backup_settings()
+        return {"ok": True, "message": "Backup-Einstellungen wurden gespeichert.", "settings": settings, "files": _list_server_backups(settings)}
     flash("Backup-Einstellungen wurden gespeichert.", "success")
     return redirect(url_for("index", open_modal="backup-modal"))
 
 
 @app.post("/settings/backups/run")
 def run_backup_now():
+    is_fetch = request.headers.get("X-Requested-With") == "fetch"
     try:
         target = _write_server_backup()
     except (OSError, ValueError) as exc:
-        flash(f"Server-Backup fehlgeschlagen: {exc}", "error")
+        message = f"Server-Backup fehlgeschlagen: {exc}"
+        if is_fetch:
+            return {"ok": False, "message": message}, 400
+        flash(message, "error")
     else:
+        if is_fetch:
+            settings = _load_backup_settings()
+            return {"ok": True, "message": "Server-Backup wurde gespeichert.", "target": target.name, "settings": settings, "files": _list_server_backups(settings)}
         flash("Server-Backup wurde gespeichert.", "success")
     return redirect(url_for("index", open_modal="backup-modal"))
 

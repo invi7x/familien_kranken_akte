@@ -500,3 +500,13 @@
   #backup-modal .backup-file-row{display:grid;grid-template-columns:minmax(0,1fr);gap:.55rem;}
   #backup-modal .small-download-btn{justify-self:start;width:auto;margin:0;}
 }
+
+/* v0.8.4 – Sicherungsdialog bleibt modal aktiv + sauberes Einstellungsraster */
+#backup-modal .backup-settings-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.85rem;align-items:start}
+#backup-modal .backup-settings-grid>label{align-content:start;align-self:start;min-width:0}
+#backup-modal .backup-settings-grid>label.full{grid-column:1/-1}
+#backup-modal .backup-settings-grid input{height:46px}
+#backup-modal .backup-settings-grid small{display:block;margin-top:.1rem;color:var(--muted);font-weight:400;line-height:1.35}
+#backup-modal .settings-state{transition:background .15s ease,color .15s ease}
+#backup-modal .settings-actions .btn,#backup-modal .backup-now-form .btn{min-height:44px}
+@media(max-width:620px){#backup-modal .backup-settings-grid{grid-template-columns:1fr}}

@@ -1,3 +1,9 @@
+## 0.8.4
+
+- Sicherungsdialog bleibt nach Speichern und Sofort-Backup als echtes Modal geöffnet; kein Seitenreload.
+- Backup-Status, letzte Sicherung und Backup-Liste werden direkt im Dialog aktualisiert.
+- Formularraster für „Tag im Monat“ und „Sicherungen behalten“ sauber ausgerichtet.
+
 # Changelog
 
 ## 0.8.3

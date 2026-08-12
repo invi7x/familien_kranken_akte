@@ -1,8 +1,8 @@
-# Stinkis’ Krankenakten – Version 0.8.3
+# Stinkis’ Krankenakten – Version 0.8.4
 
 Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 
-## Neu in Version 0.8.3
+## Neu in Version 0.8.4
 
 - Import robuster gemacht: Behandlungsfälle mit leerem bzw. `null`-Wert in `updated_at` werden automatisch repariert.
 - Bestehende migrierte Datenbanken normalisieren fehlende Vorgangs-Zeitstempel beim Start.
@@ -13,13 +13,13 @@ Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 ## Parallel testen
 
 ```bash
-cd /docker/stinkis-krankenakten-v0.8.3
+cd /docker/stinkis-krankenakten-v0.8.4
 sudo docker compose -f compose-test.yaml up -d --build
 ```
 
-Aufruf: `http://SERVER-IP:8508`
+Aufruf: `http://SERVER-IP:8510`
 
-Test-Volumes: `familienakte_v083_test_data` und `familienakte_v083_test_backups`.
+Test-Volumes: `familienakte_v084_test_data` und `familienakte_v084_test_backups`.
 
 ## Automatische Server-Backups
 
