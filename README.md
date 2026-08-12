@@ -34,7 +34,14 @@ cd familienakte
 
 ### 2. Secret ändern
 
-Vor einer produktiven Nutzung in `compose.yaml` den Wert von `SECRET_KEY` durch einen langen zufälligen Wert ersetzen oder die Konfiguration auf eine `.env`-Datei umstellen.
+Vor dem ersten Start eine lokale `.env`-Datei anlegen. Sie wird durch `.gitignore` ausdrücklich **nicht** nach GitHub übertragen:
+
+```bash
+cp .env.example .env
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Den ausgegebenen Zufallswert anschließend in `.env` als `SECRET_KEY` eintragen. Ohne gesetzten Schlüssel startet der Compose-Stack absichtlich nicht.
 
 ### 3. Starten
 
@@ -88,7 +95,7 @@ Familienakte verarbeitet sensible Gesundheitsinformationen. Die Anwendung sollte
 Empfohlen:
 
 - HTTPS über einen Reverse Proxy oder Zugriff per VPN
-- starkes, individuelles `SECRET_KEY`
+- starkes, individuelles `SECRET_KEY` in der lokalen, nicht versionierten `.env`
 - regelmäßige Backups
 - eingeschränkter Zugriff auf Docker-Volumes und Backup-Dateien
 - keine echten Gesundheitsdaten in GitHub-Issues oder Screenshots

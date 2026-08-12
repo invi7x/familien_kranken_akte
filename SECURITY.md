@@ -24,7 +24,7 @@ Do not include real medical records, backups, credentials, access tokens, IP add
 ## Deployment notes
 
 - Do not commit `.env` files, backups, databases, or exported medical data to Git.
-- Change the default `SECRET_KEY` before exposing an installation beyond a trusted local network.
+- Create a private `.env` from `.env.example` and use a unique random `SECRET_KEY`. The Compose stack intentionally refuses to start without it.
 - Prefer HTTPS behind a reverse proxy or access through a trusted VPN.
 - Keep regular JSON backups and test restoring them.
 - Restrict access to Docker volumes and backup files at operating-system level.

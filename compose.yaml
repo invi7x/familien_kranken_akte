@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     environment:
       DATA_DIR: /data
-      SECRET_KEY: change-this-secret-key
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY fehlt - bitte .env anlegen}
     ports:
       - "8484:8484"
     volumes:
@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
     environment:
       DATA_DIR: /data
-      SECRET_KEY: change-this-secret-key
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY fehlt - bitte .env anlegen}
     command: ["python", "backup_scheduler.py"]
     volumes:
       - familienakte_data:/data
