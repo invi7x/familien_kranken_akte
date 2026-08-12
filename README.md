@@ -119,3 +119,9 @@ MIT – siehe [LICENSE](LICENSE).
 ## Hinweis
 
 Familienakte ist kein Medizinprodukt und ersetzt keine medizinische Beratung, Diagnose oder Behandlung.
+
+## ❤️ Projekt unterstützen
+
+Wenn dir Familienakte gefällt und du die Weiterentwicklung unterstützen möchtest:
+
+[☕ Über PayPal unterstützen](https://paypal.me/DKoenig1979)
