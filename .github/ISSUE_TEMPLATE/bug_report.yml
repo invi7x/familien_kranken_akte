@@ -1,0 +1,51 @@
+name: Bug report
+description: Report a reproducible problem in Familienakte
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Do not include real medical records, backups, profile photos, credentials, hostnames, IP addresses, or other personal data.
+  - type: input
+    id: version
+    attributes:
+      label: Familienakte version
+      placeholder: e.g. 0.8.4
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Docker/Compose version, OS, browser/device where relevant
+      placeholder: Ubuntu 24.04, Docker Compose ..., Chrome ...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Optional. Remove all personal and medical information first.

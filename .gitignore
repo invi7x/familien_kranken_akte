@@ -10,3 +10,9 @@ backups/
 .DS_Store
 .vscode/
 .idea/
+
+# Familienakte private/runtime data
+*.json.backup
+*-backup-*.json
+familienakte-export*.json
+uploads/
