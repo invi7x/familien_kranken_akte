@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.2
+- Docker-Service-, Container- und Volume-Namen auf neutrale `familienakte_*`-Bezeichnungen umgestellt.
+- Sicherungsdialog responsiv korrigiert; horizontales Scrollen entfernt und Backup-Zeilen für kleine Viewports optimiert.
+- Pollenflug-Platzhalter aus der Oberfläche entfernt; Feature vorerst zurückgestellt.
+
 ## 0.8.1
 - Sicherungen + automatische Backup-Einstellungen in einem Dialog zusammengeführt.
 - Download vorhandener Server-Backups über die Weboberfläche.
