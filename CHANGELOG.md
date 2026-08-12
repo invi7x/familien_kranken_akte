@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.3
+- Importfehler bei `treatment_cases.updated_at = null` behoben.
+- Fehlende Vorgangs-Zeitstempel werden beim Start und Import automatisch normalisiert.
+- Exporte schreiben für Vorgänge künftig immer einen belastbaren `updated_at`-Wert.
+- Neue Vorgänge erhalten Zeitstempel explizit beim Anlegen.
+
 ## 0.8.2
 - Docker-Service-, Container- und Volume-Namen auf neutrale `familienakte_*`-Bezeichnungen umgestellt.
 - Sicherungsdialog responsiv korrigiert; horizontales Scrollen entfernt und Backup-Zeilen für kleine Viewports optimiert.

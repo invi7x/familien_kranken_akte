@@ -24,7 +24,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DB_PATH = DATA_DIR / "stinkis.db"
-APP_VERSION = "0.8.2"
+APP_VERSION = "0.8.3"
 SCHEMA_VERSION = 8
 MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024
 
@@ -153,6 +153,14 @@ def init_db() -> None:
         _add_column(db, "events", "case_id INTEGER")
         _add_column(db, "treatment_cases", "status TEXT NOT NULL DEFAULT 'active'")
         _add_column(db, "treatment_cases", "updated_at TEXT")
+        # Ältere Datenbanken erhielten updated_at erst per Migration und können
+        # deshalb bestehende Vorgänge mit NULL enthalten. Vor Export/Import und
+        # weiterer Nutzung einmalig auf einen belastbaren Zeitstempel normalisieren.
+        db.execute(
+            "UPDATE treatment_cases "
+            "SET updated_at=COALESCE(NULLIF(updated_at, ''), created_at, CURRENT_TIMESTAMP) "
+            "WHERE updated_at IS NULL OR updated_at=''"
+        )
         _add_column(db, "allergies", "start_date TEXT")
         _add_column(db, "allergies", "end_date TEXT")
         _add_column(db, "allergies", "resolved_note TEXT DEFAULT ''")
@@ -236,7 +244,13 @@ def _build_export_payload(db: sqlite3.Connection) -> dict[str, Any]:
         "appVersion": APP_VERSION,
         "exportedAt": datetime.now().isoformat(timespec="seconds"),
         "people": [dict(row) for row in db.execute("SELECT * FROM people").fetchall()],
-        "treatmentCases": [dict(row) for row in db.execute("SELECT * FROM treatment_cases").fetchall()],
+        "treatmentCases": [
+            {
+                **dict(row),
+                "updated_at": row["updated_at"] or row["created_at"] or datetime.now().isoformat(timespec="seconds"),
+            }
+            for row in db.execute("SELECT * FROM treatment_cases").fetchall()
+        ],
         "events": [dict(row) for row in db.execute("SELECT * FROM events").fetchall()],
         "allergies": [dict(row) for row in db.execute("SELECT * FROM allergies").fetchall()],
         "medications": [
@@ -800,7 +814,8 @@ def _resolve_case_id(db: sqlite3.Connection, person_id: int, raw_case_id: str | 
     new_title = (new_case_title or "").strip()
     if new_title:
         cursor = db.execute(
-            "INSERT INTO treatment_cases (person_id, title) VALUES (?, ?)",
+            "INSERT INTO treatment_cases (person_id, title, created_at, updated_at) "
+            "VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
             (person_id, new_title),
         )
         return int(cursor.lastrowid)
@@ -1154,7 +1169,10 @@ def import_data():
                 item = _clean_record(row, ["id", "person_id", "title", "notes", "status", "created_at", "updated_at"])
                 if not item.get("person_id") or not item.get("title"):
                     continue
-                item.setdefault("status", "active")
+                item["status"] = item.get("status") or "active"
+                fallback_timestamp = item.get("created_at") or datetime.now().isoformat(timespec="seconds")
+                item["created_at"] = item.get("created_at") or fallback_timestamp
+                item["updated_at"] = item.get("updated_at") or fallback_timestamp
                 cols = list(item)
                 db.execute(f"INSERT INTO treatment_cases ({','.join(cols)}) VALUES ({','.join('?' for _ in cols)})", [item[c] for c in cols])
             for row in events:

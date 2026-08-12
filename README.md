@@ -1,24 +1,25 @@
-# Stinkis’ Krankenakten – Version 0.8.2
+# Stinkis’ Krankenakten – Version 0.8.3
 
 Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 
-## Neu in Version 0.8.2
+## Neu in Version 0.8.3
 
-- Technische Docker-Namen für den Release neutralisiert: `familienakte`, `familienakte_data` und `familienakte_backups`.
-- Sicherungsdialog vollständig responsiv gemacht; horizontales Scrollen innerhalb des Dialogs entfernt.
-- Backup-Dateinamen und Download-Funktion bleiben neutral als `familienakte-backup-...json`.
-- Den vorläufigen Pollenflug-Platzhalter aus der rechten Spalte entfernt; das Feature bleibt vorerst auf Eis.
+- Import robuster gemacht: Behandlungsfälle mit leerem bzw. `null`-Wert in `updated_at` werden automatisch repariert.
+- Bestehende migrierte Datenbanken normalisieren fehlende Vorgangs-Zeitstempel beim Start.
+- Neue Vorgänge erhalten `created_at` und `updated_at` nun explizit beim Anlegen.
+- JSON-Exporte normalisieren Vorgangs-Zeitstempel, damit keine neuen Sicherungen mit `updated_at: null` entstehen.
+- Schema bleibt Version 8; bestehende Sicherungen bleiben kompatibel.
 
 ## Parallel testen
 
 ```bash
-cd /docker/stinkis-krankenakten-v0.8.2
+cd /docker/stinkis-krankenakten-v0.8.3
 sudo docker compose -f compose-test.yaml up -d --build
 ```
 
-Aufruf: `http://SERVER-IP:8507`
+Aufruf: `http://SERVER-IP:8508`
 
-Test-Volumes: `familienakte_v082_test_data` und `familienakte_v082_test_backups`.
+Test-Volumes: `familienakte_v083_test_data` und `familienakte_v083_test_backups`.
 
 ## Automatische Server-Backups
 
