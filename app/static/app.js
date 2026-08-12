@@ -757,3 +757,10 @@ document.querySelectorAll("[data-case-delete]").forEach((button) => {
     }, "Vorgang wirklich löschen?", { okText: "Ja, Vorgang löschen", cancelText: "Nein, behalten" });
   });
 });
+
+
+// v0.8.1: Nach Backup-Aktionen den Sicherungsdialog wieder öffnen.
+const requestedModal = new URLSearchParams(window.location.search).get("open_modal");
+if (requestedModal) {
+  requestAnimationFrame(() => openModal(requestedModal));
+}

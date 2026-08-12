@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.1
+- Sicherungen + automatische Backup-Einstellungen in einem Dialog zusammengeführt.
+- Download vorhandener Server-Backups über die Weboberfläche.
+- Maximale Backup-Aufbewahrung auf 10 begrenzt.
+- Neutralere Backup-/Export-Dateinamen.
+- Sub-Cards für mehrere Allergie-/Medikamenteneinträge je Person.
+- Einheitlicher Notiztrenner.
+
 ## 0.8.0
 - Einstellungen-Bereich eingeführt.
 - Monatliche automatische JSON-Backups mit eigenständigem Docker-Scheduler.

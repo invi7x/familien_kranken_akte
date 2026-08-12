@@ -1,41 +1,30 @@
-# Stinkis’ Krankenakten – Version 0.8.0
+# Stinkis’ Krankenakten – Version 0.8.1
 
 Eine kleine, selbst gehostete Familien-Gesundheitschronik.
 
-## Neu in Version 0.8.0
+## Neu in Version 0.8.1
 
-- Neuer Bereich **⚙️ Einstellungen**.
-- **Automatische monatliche JSON-Backups** serverseitig aktivierbar.
-- Backup-Tag im Monat (1–28), Zielpfad und Anzahl aufzubewahrender Sicherungen konfigurierbar.
-- **„Jetzt auf Server sichern“** für ein sofortiges Backup.
-- Letzter erfolgreicher Backup-Zeitpunkt wird angezeigt.
-- Separater Docker-Backup-Scheduler: Backups laufen auch dann, wenn die Webseite nicht geöffnet ist.
-- Standardmäßig werden Backups in einem eigenen persistenten Docker-Volume unter `/backups` abgelegt.
-- Rechte Medikamenten-/Allergieboxen typografisch nochmals aufgeräumt: klarere Hierarchie und mehr Luft bei Grund, Zeitraum und Notiz.
-- Die bereits vorhandenen Kategorie-Icons bleiben in den Kategorie-Dropdowns erhalten.
+- **Sicherungen und Backup-Einstellungen zusammengeführt**: nur noch ein Menüpunkt „Sicherungen“.
+- Automatische monatliche Sicherungen, Sofort-Backup, manueller JSON-Export und Import befinden sich jetzt an einer Stelle.
+- Vorhandene automatische Server-Backups werden im Dialog aufgelistet und können direkt über **Download** heruntergeladen werden.
+- Es werden maximal **10 automatische Sicherungen** vorgehalten; ein kleinerer Wert kann eingestellt werden.
+- Alte Sicherungen werden beim Erstellen bzw. nach Änderung der Aufbewahrungszahl automatisch bereinigt.
+- Neue Backup-Dateien heißen neutral `familienakte-backup-...json`; vorhandene ältere `stinkis-backup-...json` bleiben sichtbar und downloadbar.
+- Der manuelle Export heißt `familienakte-export.json`.
+- Rechte Allergie- und Medikamentenbereiche: jeder Eintrag innerhalb einer Person wird jetzt als dezente **Sub-Card** dargestellt.
+- Notizen sind bei Allergien und Medikamenten einheitlich durch einen feinen Trenner von den übrigen Metadaten abgesetzt.
 
 ## Parallel testen
 
 ```bash
-cd /docker/stinkis-krankenakten-v0.8.0
+cd /docker/stinkis-krankenakten-v0.8.1
 sudo docker compose -f compose-test.yaml up -d --build
 ```
 
-Aufruf: `http://SERVER-IP:8505`
+Aufruf: `http://SERVER-IP:8506`
 
-Das Test-Volume heißt `stinkis_v080_test_data`.
+Test-Volumes: `stinkis_v081_test_data` und `stinkis_v081_test_backups`.
 
 ## Automatische Server-Backups
 
-Die Compose-Dateien starten neben der Web-App einen kleinen `backup-scheduler`. Er prüft stündlich, ob das konfigurierte monatliche Backup fällig ist.
-
-Standardpfad: `/backups`
-
-Dieser Pfad ist im mitgelieferten Compose als eigenes persistentes Docker-Volume eingebunden. Wer Backups direkt in einen Ordner des Hosts/NAS schreiben möchte, kann das Volume später durch einen Bind-Mount ersetzen, beispielsweise:
-
-```yaml
-volumes:
-  - /docker/stinkis-backups:/backups
-```
-
-Die automatische Sicherung verwendet dasselbe vollständige JSON-Format wie der manuelle Export, inklusive Profilbildern und Schema-Version.
+Die Compose-Dateien starten neben der Web-App einen kleinen `backup-scheduler`. Er prüft stündlich, ob das konfigurierte monatliche Backup fällig ist. Standardpfad im Container ist `/backups`. Die Dateien liegen weiterhin persistent im Docker-Volume, sind aber über **Sicherungen → Gespeicherte Server-Backups → Download** direkt erreichbar.

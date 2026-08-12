@@ -13,7 +13,7 @@ from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from typing import Any
 
-from flask import Flask, Response, flash, redirect, render_template, request, url_for
+from flask import Flask, Response, abort, flash, redirect, render_template, request, send_file, url_for
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.pagesizes import A4
@@ -24,7 +24,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 APP_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DB_PATH = DATA_DIR / "stinkis.db"
-APP_VERSION = "0.8.0"
+APP_VERSION = "0.8.1"
 SCHEMA_VERSION = 8
 MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024
 
@@ -32,7 +32,7 @@ BACKUP_DEFAULTS = {
     "backup_enabled": "0",
     "backup_day": "1",
     "backup_dir": "/backups",
-    "backup_keep": "12",
+    "backup_keep": "10",
     "backup_last_run": "",
 }
 
@@ -214,7 +214,7 @@ def _load_backup_settings(db: sqlite3.Connection | None = None) -> dict[str, Any
             "enabled": values["backup_enabled"] == "1",
             "day": int(values["backup_day"] or 1),
             "directory": values["backup_dir"] or "/backups",
-            "keep": int(values["backup_keep"] or 12),
+            "keep": min(10, max(1, int(values["backup_keep"] or 10))),
             "last_run": values["backup_last_run"] or "",
         }
     finally:
@@ -268,6 +268,43 @@ def _backup_due(settings: dict[str, Any], today_value: date | None = None) -> bo
     return (previous.year, previous.month) != (today_value.year, today_value.month)
 
 
+def _known_backup_files(backup_dir: Path) -> list[Path]:
+    files: dict[str, Path] = {}
+    for pattern in ("familienakte-backup-*.json", "stinkis-backup-*.json"):
+        for item in backup_dir.glob(pattern):
+            if item.is_file():
+                files[str(item.resolve())] = item
+    return sorted(files.values(), key=lambda item: item.stat().st_mtime, reverse=True)
+
+
+def _prune_server_backups(backup_dir: Path, keep: int) -> None:
+    keep = max(1, min(10, int(keep)))
+    for old_file in _known_backup_files(backup_dir)[keep:]:
+        old_file.unlink(missing_ok=True)
+
+
+def _list_server_backups(settings: dict[str, Any]) -> list[dict[str, Any]]:
+    backup_dir = Path(settings.get("directory") or "/backups")
+    if not backup_dir.is_absolute() or not backup_dir.exists():
+        return []
+    result = []
+    for item in _known_backup_files(backup_dir):
+        stat = item.stat()
+        size = stat.st_size
+        if size < 1024:
+            size_label = f"{size} B"
+        elif size < 1024 * 1024:
+            size_label = f"{size / 1024:.1f} KB"
+        else:
+            size_label = f"{size / (1024 * 1024):.1f} MB"
+        result.append({
+            "name": item.name,
+            "size": size_label,
+            "created": datetime.fromtimestamp(stat.st_mtime).strftime("%d.%m.%Y %H:%M"),
+        })
+    return result
+
+
 def _write_server_backup() -> Path:
     with get_db() as db:
         settings = _load_backup_settings(db)
@@ -277,14 +314,11 @@ def _write_server_backup() -> Path:
         backup_dir.mkdir(parents=True, exist_ok=True)
         payload = _build_export_payload(db)
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        target = backup_dir / f"stinkis-backup-{timestamp}.json"
+        target = backup_dir / f"familienakte-backup-{timestamp}.json"
         temp_target = target.with_suffix(".json.tmp")
         temp_target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         temp_target.replace(target)
-        keep = max(1, min(60, int(settings.get("keep") or 12)))
-        files = sorted(backup_dir.glob("stinkis-backup-*.json"), key=lambda item: item.stat().st_mtime, reverse=True)
-        for old_file in files[keep:]:
-            old_file.unlink(missing_ok=True)
+        _prune_server_backups(backup_dir, settings.get("keep") or 10)
         _set_app_setting(db, "backup_last_run", datetime.now().isoformat(timespec="seconds"))
         return target
 
@@ -582,6 +616,7 @@ def index():
             except ValueError:
                 followup_case = None
         backup_settings = _load_backup_settings(db)
+        backup_files = _list_server_backups(backup_settings)
 
     active_allergies = [a for a in allergies if not a["end_date"] or a["end_date"] > today_iso]
     ended_allergies = [a for a in allergies if a["end_date"] and a["end_date"] <= today_iso]
@@ -606,6 +641,7 @@ def index():
         active_treatment_cases=active_case_rows,
         followup_case=followup_case,
         backup_settings=backup_settings,
+        backup_files=backup_files,
         q=q,
         selected_person_id=person_id,
         selected_category=category,
@@ -1004,7 +1040,7 @@ def export_data():
     with get_db() as db:
         payload = _build_export_payload(db)
     body = json.dumps(payload, ensure_ascii=False, indent=2)
-    return Response(body, mimetype="application/json", headers={"Content-Disposition": "attachment; filename=stinkis-krankenakten-export.json"})
+    return Response(body, mimetype="application/json", headers={"Content-Disposition": "attachment; filename=familienakte-export.json"})
 
 
 @app.post("/settings/backups")
@@ -1013,15 +1049,15 @@ def update_backup_settings():
     directory = request.form.get("backup_dir", "/backups").strip() or "/backups"
     try:
         day = int(request.form.get("backup_day", "1"))
-        keep = int(request.form.get("backup_keep", "12"))
+        keep = int(request.form.get("backup_keep", "10"))
     except ValueError:
         flash("Backup-Tag und Anzahl der Sicherungen müssen Zahlen sein.", "error")
         return redirect(url_for("index"))
     if not 1 <= day <= 28:
         flash("Der Backup-Tag muss zwischen 1 und 28 liegen.", "error")
         return redirect(url_for("index"))
-    if not 1 <= keep <= 60:
-        flash("Es können zwischen 1 und 60 Sicherungen aufbewahrt werden.", "error")
+    if not 1 <= keep <= 10:
+        flash("Es können zwischen 1 und 10 Sicherungen aufbewahrt werden.", "error")
         return redirect(url_for("index"))
     if not Path(directory).is_absolute():
         flash("Der Backup-Pfad muss ein absoluter Pfad im Container sein.", "error")
@@ -1031,8 +1067,14 @@ def update_backup_settings():
         _set_app_setting(db, "backup_day", str(day))
         _set_app_setting(db, "backup_dir", directory)
         _set_app_setting(db, "backup_keep", str(keep))
+    try:
+        backup_dir = Path(directory)
+        if backup_dir.exists():
+            _prune_server_backups(backup_dir, keep)
+    except OSError:
+        pass
     flash("Backup-Einstellungen wurden gespeichert.", "success")
-    return redirect(url_for("index"))
+    return redirect(url_for("index", open_modal="backup-modal"))
 
 
 @app.post("/settings/backups/run")
@@ -1042,8 +1084,26 @@ def run_backup_now():
     except (OSError, ValueError) as exc:
         flash(f"Server-Backup fehlgeschlagen: {exc}", "error")
     else:
-        flash(f"Server-Backup gespeichert: {target}", "success")
-    return redirect(url_for("index"))
+        flash("Server-Backup wurde gespeichert.", "success")
+    return redirect(url_for("index", open_modal="backup-modal"))
+
+
+@app.get("/backups/<path:filename>/download")
+def download_server_backup(filename: str):
+    if Path(filename).name != filename or not filename.endswith(".json"):
+        abort(404)
+    if not (filename.startswith("familienakte-backup-") or filename.startswith("stinkis-backup-")):
+        abort(404)
+    settings = _load_backup_settings()
+    backup_dir = Path(settings["directory"])
+    target = (backup_dir / filename).resolve()
+    try:
+        target.relative_to(backup_dir.resolve())
+    except ValueError:
+        abort(404)
+    if not target.is_file():
+        abort(404)
+    return send_file(target, as_attachment=True, download_name=target.name, mimetype="application/json")
 
 
 def _clean_record(record: dict[str, Any], allowed: list[str]) -> dict[str, Any]:
